@@ -1,5 +1,6 @@
 """Serializers for scheduling app."""
 from rest_framework import serializers
+from django.db import models as django_models
 from .models import Booking, Room, TimeSlot, Equipment, Waitlist
 from django.contrib.auth import get_user_model
 
@@ -8,11 +9,24 @@ User = get_user_model()
 
 class EquipmentSerializer(serializers.ModelSerializer):
     """Serializer for Equipment model."""
+    assigned_quantity = serializers.SerializerMethodField()
+    available_quantity = serializers.SerializerMethodField()
     
     class Meta:
         model = Equipment
-        fields = ['id', 'name', 'description', 'quantity', 'is_active', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        fields = ['id', 'name', 'description', 'quantity', 'assigned_quantity', 
+                  'available_quantity', 'is_active', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'assigned_quantity', 'available_quantity', 'created_at', 'updated_at']
+    
+    def get_assigned_quantity(self, obj):
+        """Get total quantity assigned to rooms"""
+        return obj.get_distribution().aggregate(
+            total=django_models.Sum('quantity')
+        )['total'] or 0
+    
+    def get_available_quantity(self, obj):
+        """Get available quantity not yet assigned"""
+        return obj.get_available_quantity()
 
 
 class TimeSlotSerializer(serializers.ModelSerializer):
@@ -51,7 +65,8 @@ class RoomListSerializer(serializers.ModelSerializer):
     equipment_count = serializers.SerializerMethodField()
     
     def get_equipment_count(self, obj):
-        return obj.equipment.count()
+        """Count equipment items from RoomEquipment through model"""
+        return obj.room_equipment.count()
     
     class Meta:
         model = Room
@@ -110,6 +125,23 @@ class BookingSerializer(serializers.ModelSerializer):
 
 class BookingCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating bookings."""
+
+    def validate(self, data):
+        date = data.get('date')
+        time_slot = data.get('time_slot')
+
+        if date and time_slot and time_slot.days_of_week:
+            try:
+                slot_days = [int(d) for d in time_slot.days_of_week]
+            except (TypeError, ValueError):
+                slot_days = []
+
+            if slot_days and date.weekday() not in slot_days:
+                raise serializers.ValidationError(
+                    "Selected time slot is not available on this day."
+                )
+
+        return data
     
     class Meta:
         model = Booking
@@ -122,6 +154,23 @@ class BookingCreateSerializer(serializers.ModelSerializer):
 
 class BookingUpdateSerializer(serializers.ModelSerializer):
     """Serializer for updating bookings."""
+
+    def validate(self, data):
+        date = data.get('date')
+        time_slot = data.get('time_slot')
+
+        if date and time_slot and time_slot.days_of_week:
+            try:
+                slot_days = [int(d) for d in time_slot.days_of_week]
+            except (TypeError, ValueError):
+                slot_days = []
+
+            if slot_days and date.weekday() not in slot_days:
+                raise serializers.ValidationError(
+                    "Selected time slot is not available on this day."
+                )
+
+        return data
     
     class Meta:
         model = Booking

@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { approveBooking, rejectBooking } from '../../services/schedulingApi';
+import AlertModal from '../Common/Modal/AlertModal';
 import './Dashboard.css';
 
 const QuickBookingApproval = ({ booking, onApproved, onRejected }) => {
   const [loading, setLoading] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
+  const [alertModal, setAlertModal] = useState({ isOpen: false, title: '', message: '', type: 'info' });
 
   const handleApprove = async () => {
     setLoading(true);
@@ -14,7 +16,12 @@ const QuickBookingApproval = ({ booking, onApproved, onRejected }) => {
       onApproved(booking.id);
     } catch (error) {
       console.error('Failed to approve booking:', error);
-      alert('Failed to approve booking');
+      setAlertModal({
+        isOpen: true,
+        title: 'Error',
+        message: 'Failed to approve booking',
+        type: 'error'
+      });
     } finally {
       setLoading(false);
     }
@@ -22,7 +29,12 @@ const QuickBookingApproval = ({ booking, onApproved, onRejected }) => {
 
   const handleReject = async () => {
     if (!rejectionReason.trim()) {
-      alert('Please provide a reason for rejection');
+      setAlertModal({
+        isOpen: true,
+        title: 'Required Field',
+        message: 'Please provide a reason for rejection',
+        type: 'warning'
+      });
       return;
     }
 
@@ -33,7 +45,12 @@ const QuickBookingApproval = ({ booking, onApproved, onRejected }) => {
       setShowRejectModal(false);
     } catch (error) {
       console.error('Failed to reject booking:', error);
-      alert('Failed to reject booking');
+      setAlertModal({
+        isOpen: true,
+        title: 'Error',
+        message: 'Failed to reject booking',
+        type: 'error'
+      });
     } finally {
       setLoading(false);
     }
@@ -115,6 +132,13 @@ const QuickBookingApproval = ({ booking, onApproved, onRejected }) => {
           </div>
         </div>
       )}
+      <AlertModal
+        isOpen={alertModal.isOpen}
+        title={alertModal.title}
+        message={alertModal.message}
+        type={alertModal.type}
+        onClose={() => setAlertModal(prev => ({ ...prev, isOpen: false }))}
+      />
     </>
   );
 };

@@ -78,9 +78,15 @@ class RoomViewSet(viewsets.ModelViewSet):
         # Filter by equipment
         equipment_id = self.request.query_params.get('equipment_id')
         if equipment_id:
-            queryset = queryset.filter(equipment__id=equipment_id)
+            queryset = queryset.filter(room_equipment__equipment__id=equipment_id)
         
-        return queryset.prefetch_related('equipment')
+        # Optimize queries - prefetch room_equipment for list view
+        if self.action == 'list':
+            queryset = queryset.prefetch_related('room_equipment')
+        else:
+            queryset = queryset.prefetch_related('room_equipment__equipment')
+        
+        return queryset
     
     @action(detail=True, methods=['get'])
     def availability(self, request, pk=None):
@@ -104,6 +110,7 @@ class RoomViewSet(viewsets.ModelViewSet):
         
         # Get all time slots
         time_slots = TimeSlot.objects.filter(is_active=True)
+        weekday = target_date.weekday()
         
         # Get bookings for this room on this date
         bookings = Booking.objects.filter(
@@ -114,6 +121,16 @@ class RoomViewSet(viewsets.ModelViewSet):
         
         availability = []
         for slot in time_slots:
+            slot_days = []
+            if slot.days_of_week:
+                try:
+                    slot_days = [int(d) for d in slot.days_of_week]
+                except (TypeError, ValueError):
+                    slot_days = []
+
+            if slot_days and weekday not in slot_days:
+                continue
+
             availability.append({
                 'time_slot': TimeSlotSerializer(slot).data,
                 'is_available': slot.id not in bookings
@@ -197,7 +214,7 @@ class BookingViewSet(viewsets.ModelViewSet):
     
     def get_permissions(self):
         """Permission based on action."""
-        if self.action in ['approve', 'reject', 'override_conflict', 'bulk_cancel']:
+        if self.action in ['approve', 'reject', 'override_conflict', 'bulk_cancel', 'bulk_delete']:
             return [IsAdminUser()]
         return [IsAuthenticated()]
     
@@ -255,9 +272,8 @@ class BookingViewSet(viewsets.ModelViewSet):
         try:
             booking = serializer.save()
             
-            # Handle recurring bookings
-            if booking.is_recurring and booking.recurrence_pattern and booking.recurrence_end_date:
-                self._create_recurring_instances(booking)
+            # Don't create recurring instances immediately
+            # They will be created when the booking is approved
             
         except DjangoValidationError as e:
             raise ValidationError(str(e))
@@ -332,6 +348,10 @@ class BookingViewSet(viewsets.ModelViewSet):
         booking.notes = request.data.get('notes', booking.notes)
         booking.save()
         
+        # If this is a recurring booking without a parent, create all instances
+        if booking.is_recurring and not booking.parent_booking and booking.recurrence_end_date:
+            self._create_recurring_instances(booking)
+        
         # Check and fulfill waitlist if this was a cancellation replacement
         self._check_waitlist(booking.room, booking.date, booking.time_slot)
         
@@ -352,6 +372,8 @@ class BookingViewSet(viewsets.ModelViewSet):
         booking.approved_by = request.user
         booking.notes = request.data.get('notes', booking.notes)
         booking.save()
+        
+        # No need to handle instances - they don't exist yet for pending recurring bookings
         
         return Response(BookingSerializer(booking).data)
     
@@ -433,6 +455,28 @@ class BookingViewSet(viewsets.ModelViewSet):
             'message': f'Successfully cancelled {updated} bookings',
             'cancelled_count': updated
         })
+
+    @action(detail=False, methods=['post'], permission_classes=[IsAdminUser])
+    def bulk_delete(self, request):
+        """Bulk delete cancelled bookings."""
+        booking_ids = request.data.get('booking_ids', [])
+        
+        if not booking_ids:
+            return Response(
+                {'error': 'booking_ids list is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Only delete cancelled bookings
+        deleted_count, _ = Booking.objects.filter(
+            id__in=booking_ids,
+            status='CANCELLED'
+        ).delete()
+        
+        return Response({
+            'message': f'Successfully deleted {deleted_count} bookings',
+            'deleted_count': deleted_count
+        })
     
     @action(detail=False, methods=['get'])
     def calendar(self, request):
@@ -450,8 +494,7 @@ class BookingViewSet(viewsets.ModelViewSet):
         # Build query
         queryset = Booking.objects.filter(
             date__gte=start_date,
-            date__lte=end_date,
-            status__in=['APPROVED', 'CONFIRMED', 'PENDING']
+            date__lte=end_date
         ).select_related('room', 'user', 'time_slot')
         
         if room_ids:

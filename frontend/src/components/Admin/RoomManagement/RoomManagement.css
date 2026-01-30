@@ -356,3 +356,69 @@ textarea.form-input {
     width: 100%;
   }
 }
+/* Equipment Distribution */
+.equipment-distribution {
+  padding: 20px;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.equipment-distribution h4 {
+  margin: 0 0 10px 0;
+  color: #333;
+}
+
+.equipment-distribution .help-text {
+  color: #666;
+  font-size: 14px;
+  margin-bottom: 20px;
+}
+
+.equipment-table {
+  overflow-x: auto;
+}
+
+.equipment-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.equipment-table th {
+  background: #f5f5f5;
+  padding: 12px;
+  text-align: left;
+  font-weight: 600;
+  color: #333;
+  border-bottom: 2px solid #ddd;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.equipment-table td {
+  padding: 12px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.equipment-table tr:hover {
+  background: #f9f9f9;
+}
+
+.equipment-table .quantity-input {
+  padding: 6px 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  width: 80px;
+}
+
+.equipment-table .quantity-input:focus {
+  outline: none;
+  border-color: #1976d2;
+}
+
+.large-modal .modal-content {
+  max-width: 900px;
+  width: 90%;
+}

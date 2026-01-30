@@ -8,7 +8,7 @@ class Equipment(models.Model):
     """Equipment that can be linked to rooms"""
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
-    quantity = models.IntegerField(default=1)
+    quantity = models.IntegerField(default=1, help_text="Total available quantity")
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -16,8 +16,55 @@ class Equipment(models.Model):
     def __str__(self):
         return f"{self.name} (x{self.quantity})"
     
+    def get_available_quantity(self):
+        """Calculate available quantity not assigned to rooms"""
+        assigned = RoomEquipment.objects.filter(equipment=self).aggregate(
+            total=models.Sum('quantity')
+        )['total'] or 0
+        return self.quantity - assigned
+    
+    def get_distribution(self):
+        """Get distribution across all rooms"""
+        return RoomEquipment.objects.filter(equipment=self).select_related('room')
+    
     class Meta:
         verbose_name_plural = "Equipment"
+
+
+class RoomEquipment(models.Model):
+    """Through model to track equipment quantity per room"""
+    room = models.ForeignKey('Room', on_delete=models.CASCADE, related_name='room_equipment')
+    equipment = models.ForeignKey(Equipment, on_delete=models.CASCADE, related_name='equipment_rooms')
+    quantity = models.IntegerField(default=1, help_text="Quantity of this equipment in this room")
+    assigned_date = models.DateTimeField(auto_now_add=True)
+    notes = models.TextField(blank=True)
+    
+    class Meta:
+        unique_together = ['room', 'equipment']
+        ordering = ['room__name', 'equipment__name']
+    
+    def __str__(self):
+        return f"{self.equipment.name} x{self.quantity} in {self.room.name}"
+    
+    def clean(self):
+        """Validate that we don't exceed total equipment quantity"""
+        if self.quantity <= 0:
+            raise ValidationError("Quantity must be greater than 0")
+        
+        # Check total distribution doesn't exceed available quantity
+        total_assigned = RoomEquipment.objects.filter(
+            equipment=self.equipment
+        ).exclude(pk=self.pk).aggregate(
+            total=models.Sum('quantity')
+        )['total'] or 0
+        
+        if total_assigned + self.quantity > self.equipment.quantity:
+            available = self.equipment.quantity - total_assigned
+            raise ValidationError(
+                f"Cannot assign {self.quantity}. Only {available} units available. "
+                f"Total: {self.equipment.quantity}, Already assigned: {total_assigned}"
+            )
+
 
 class Room(models.Model):
     ROOM_TYPES = [
@@ -34,7 +81,7 @@ class Room(models.Model):
     floor = models.CharField(max_length=10, blank=True)
     building = models.CharField(max_length=100, blank=True)
     description = models.TextField(blank=True)
-    equipment = models.ManyToManyField(Equipment, blank=True, related_name='rooms')
+    equipment = models.ManyToManyField(Equipment, blank=True, related_name='rooms_old')
     features = models.JSONField(default=list, blank=True, help_text="Additional features like projector, whiteboard, etc.")
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -42,6 +89,10 @@ class Room(models.Model):
     
     def __str__(self):
         return f"{self.name} ({self.get_room_type_display()})"
+    
+    def get_equipment_with_quantities(self):
+        """Get equipment assigned to this room with quantities"""
+        return RoomEquipment.objects.filter(room=self).select_related('equipment')
     
     class Meta:
         ordering = ['name']
