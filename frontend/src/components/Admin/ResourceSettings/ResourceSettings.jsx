@@ -1,10 +1,16 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import { getEquipment, createEquipment, updateEquipment, deleteEquipment } from '../../../services/schedulingApi';
 import { getTimeSlots, createTimeSlot, updateTimeSlot, deleteTimeSlot } from '../../../services/schedulingApi';
+import ConfirmModal from '../../../components/Common/Modal/ConfirmModal';
+import AlertModal from '../../../components/Common/Modal/AlertModal';
 import './ResourceSettings.css';
+
+const API_BASE = 'http://localhost:8000/api/v1';
 
 const ResourceSettings = () => {
   const [equipment, setEquipment] = useState([]);
+  const [equipmentDistribution, setEquipmentDistribution] = useState({}); // Map of equipment_id -> room assignments
   const [timeSlots, setTimeSlots] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -13,6 +19,10 @@ const ResourceSettings = () => {
   const [showModal, setShowModal] = useState(false);
   const [currentItem, setCurrentItem] = useState(null);
   const [modalType, setModalType] = useState('equipment');
+
+  // Modal states
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: null, isDangerous: false });
+  const [alertModal, setAlertModal] = useState({ isOpen: false, title: '', message: '', type: 'info' });
 
   const [equipmentForm, setEquipmentForm] = useState({
     name: '',
@@ -59,12 +69,40 @@ const ResourceSettings = () => {
       ]);
       setEquipment(Array.isArray(equipData) ? equipData : equipData.results || []);
       setTimeSlots(Array.isArray(slotsData) ? slotsData : slotsData.results || []);
+      
+      // Fetch equipment distribution
+      await fetchEquipmentDistribution();
+      
       setError(null);
     } catch (err) {
       setError('Failed to fetch data');
       console.error('Error fetching data:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchEquipmentDistribution = async () => {
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await axios.get(
+        `${API_BASE}/equipment-config/equipment_distribution/`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      // Build a map of equipment_id -> room assignments
+      const distributionMap = {};
+      response.data.forEach(equip => {
+        distributionMap[equip.equipment_id] = equip.rooms.map(room => ({
+          id: room.id,
+          name: room.name,
+          quantity: room.quantity_in_room
+        }));
+      });
+      
+      setEquipmentDistribution(distributionMap);
+    } catch (err) {
+      console.error('Error fetching equipment distribution:', err);
     }
   };
 
@@ -113,16 +151,24 @@ const ResourceSettings = () => {
   };
 
   const handleEquipmentDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this equipment?')) return;
-    try {
-      await deleteEquipment(id);
-      setSuccess('Equipment deleted');
-      fetchData();
-      setTimeout(() => setSuccess(null), 3000);
-    } catch (err) {
-      setError('Failed to delete equipment');
-      console.error('Error deleting equipment:', err);
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: 'Delete Equipment',
+      message: 'Are you sure you want to delete this equipment? This cannot be undone.',
+      isDangerous: true,
+      onConfirm: async () => {
+        try {
+          await deleteEquipment(id);
+          setSuccess('Equipment deleted');
+          setConfirmModal(prev => ({ ...prev, isOpen: false }));
+          fetchData();
+          setTimeout(() => setSuccess(null), 3000);
+        } catch (err) {
+          setError('Failed to delete equipment');
+          console.error('Error deleting equipment:', err);
+        }
+      }
+    });
   };
 
   // Time Slot handlers
@@ -174,16 +220,24 @@ const ResourceSettings = () => {
   };
 
   const handleTimeSlotDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this time slot?')) return;
-    try {
-      await deleteTimeSlot(id);
-      setSuccess('Time slot deleted');
-      fetchData();
-      setTimeout(() => setSuccess(null), 3000);
-    } catch (err) {
-      setError('Failed to delete time slot');
-      console.error('Error deleting time slot:', err);
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: 'Delete Time Slot',
+      message: 'Are you sure you want to delete this time slot? This cannot be undone.',
+      isDangerous: true,
+      onConfirm: async () => {
+        try {
+          await deleteTimeSlot(id);
+          setSuccess('Time slot deleted');
+          setConfirmModal(prev => ({ ...prev, isOpen: false }));
+          fetchData();
+          setTimeout(() => setSuccess(null), 3000);
+        } catch (err) {
+          setError('Failed to delete time slot');
+          console.error('Error deleting time slot:', err);
+        }
+      }
+    });
   };
 
   const toggleDay = (day) => {
@@ -240,32 +294,63 @@ const ResourceSettings = () => {
             <div className="loading">Loading...</div>
           ) : (
             <div className="items-grid">
-              {equipment.map(item => (
-                <div key={item.id} className="item-card">
-                  <div className="item-header">
-                    <h4>{item.name}</h4>
-                    <span className={`badge ${item.is_active ? 'badge-success' : 'badge-secondary'}`}>
-                      {item.is_active ? 'Active' : 'Inactive'}
-                    </span>
+              {equipment.map(item => {
+                const roomAssignments = equipmentDistribution[item.id] || [];
+                const hasAssignments = roomAssignments.length > 0;
+                
+                return (
+                  <div key={item.id} className="item-card">
+                    <div className="item-header">
+                      <h4>{item.name}</h4>
+                      <span className={`badge ${item.is_active ? 'badge-success' : 'badge-secondary'}`}>
+                        {item.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+                    <p className="item-description">{item.description || 'No description'}</p>
+                    <div style={{ marginTop: '10px' }}>
+                      <p><strong>Total Quantity:</strong> {item.quantity}</p>
+                      {item.assigned_quantity !== undefined && (
+                        <>
+                          <p><strong>Assigned:</strong> {item.assigned_quantity}</p>
+                          <p><strong>Available:</strong> <span style={{ 
+                            color: item.available_quantity > 0 ? '#28a745' : '#dc3545',
+                            fontWeight: 'bold' 
+                          }}>{item.available_quantity}</span></p>
+                        </>
+                      )}
+                      
+                      {hasAssignments && (
+                        <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #e0e0e0' }}>
+                          <p style={{ marginBottom: '6px', fontSize: '0.875rem', fontWeight: '600' }}>
+                            📋 Assigned to Rooms:
+                          </p>
+                          <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '0.875rem' }}>
+                            {roomAssignments.map(room => (
+                              <li key={room.id} style={{ marginBottom: '4px' }}>
+                                <strong>{room.name}</strong>: {room.quantity} units
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                    <div className="item-actions">
+                      <button
+                        className="btn btn-sm btn-primary"
+                        onClick={() => openEquipmentModal(item)}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        className="btn btn-sm btn-danger"
+                        onClick={() => handleEquipmentDelete(item.id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </div>
-                  <p className="item-description">{item.description || 'No description'}</p>
-                  <p><strong>Quantity:</strong> {item.quantity}</p>
-                  <div className="item-actions">
-                    <button
-                      className="btn btn-sm btn-primary"
-                      onClick={() => openEquipmentModal(item)}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      className="btn btn-sm btn-danger"
-                      onClick={() => handleEquipmentDelete(item.id)}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -481,6 +566,23 @@ const ResourceSettings = () => {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        isDangerous={confirmModal.isDangerous}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+      />
+
+      <AlertModal
+        isOpen={alertModal.isOpen}
+        title={alertModal.title}
+        message={alertModal.message}
+        type={alertModal.type}
+        onClose={() => setAlertModal(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 };

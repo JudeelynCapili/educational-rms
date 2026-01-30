@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import {
   getBookings, approveBooking, rejectBooking, cancelBooking,
-  overrideConflict, bulkCancelBookings, deleteBooking
+  overrideConflict, bulkCancelBookings, bulkDeleteBookings, deleteBooking
 } from '../../../services/schedulingApi';
 import QuickCreateBooking from '../../Dashboard/QuickCreateBooking';
+import PromptModal from '../../Common/Modal/PromptModal';
+import ConfirmModal from '../../Common/Modal/ConfirmModal';
+import AlertModal from '../../Common/Modal/AlertModal';
 import './BookingManagement.css';
 
 const BookingManagement = () => {
@@ -16,6 +19,11 @@ const BookingManagement = () => {
   const [currentBooking, setCurrentBooking] = useState(null);
   const [overrideReason, setOverrideReason] = useState('');
   const [showCreateBooking, setShowCreateBooking] = useState(false);
+  
+  // Modal states
+  const [promptModal, setPromptModal] = useState({ isOpen: false, title: '', label: '', placeholder: '', onConfirm: null });
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: null, isDangerous: false });
+  const [alertModal, setAlertModal] = useState({ isOpen: false, title: '', message: '', type: 'info' });
   
   const [filters, setFilters] = useState({
     status: 'PENDING',
@@ -85,10 +93,20 @@ const BookingManagement = () => {
   };
 
   const handleReject = async (bookingId) => {
-    const notes = prompt('Reason for rejection (optional):');
+    setPromptModal({
+      isOpen: true,
+      title: 'Reject Booking',
+      label: 'Reason for rejection (optional)',
+      placeholder: 'Enter rejection reason...',
+      onConfirm: (notes) => rejectBookingWithNotes(bookingId, notes)
+    });
+  };
+
+  const rejectBookingWithNotes = async (bookingId, notes) => {
     try {
       await rejectBooking(bookingId, notes || '');
       setSuccess('Booking rejected');
+      setPromptModal({ ...promptModal, isOpen: false });
       fetchBookings();
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
@@ -98,12 +116,29 @@ const BookingManagement = () => {
   };
 
   const handleCancel = async (bookingId) => {
-    if (!window.confirm('Are you sure you want to cancel this booking?')) return;
-    
-    const notes = prompt('Reason for cancellation (optional):');
+    setConfirmModal({
+      isOpen: true,
+      title: 'Cancel Booking',
+      message: 'Are you sure you want to cancel this booking? You will be asked to provide a reason.',
+      isDangerous: false,
+      onConfirm: () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        setPromptModal({
+          isOpen: true,
+          title: 'Cancel Booking',
+          label: 'Reason for cancellation (optional)',
+          placeholder: 'Enter cancellation reason...',
+          onConfirm: (notes) => cancelBookingWithNotes(bookingId, notes)
+        });
+      }
+    });
+  };
+
+  const cancelBookingWithNotes = async (bookingId, notes) => {
     try {
       await cancelBooking(bookingId, { notes: notes || '' });
       setSuccess('Booking cancelled');
+      setPromptModal(prev => ({ ...prev, isOpen: false }));
       fetchBookings();
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
@@ -113,16 +148,24 @@ const BookingManagement = () => {
   };
 
   const handleDelete = async (bookingId) => {
-    if (!window.confirm('Delete this cancelled booking permanently? This cannot be undone.')) return;
-    try {
-      await deleteBooking(bookingId);
-      setSuccess('Booking deleted');
-      fetchBookings();
-      setTimeout(() => setSuccess(null), 3000);
-    } catch (err) {
-      setError('Failed to delete booking');
-      console.error('Error deleting booking:', err);
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: 'Delete Booking',
+      message: 'Delete this cancelled booking permanently? This cannot be undone.',
+      isDangerous: true,
+      onConfirm: async () => {
+        try {
+          await deleteBooking(bookingId);
+          setSuccess('Booking deleted');
+          setConfirmModal(prev => ({ ...prev, isOpen: false }));
+          fetchBookings();
+          setTimeout(() => setSuccess(null), 3000);
+        } catch (err) {
+          setError('Failed to delete booking');
+          console.error('Error deleting booking:', err);
+        }
+      }
+    });
   };
 
   const openOverrideModal = (booking) => {
@@ -133,7 +176,12 @@ const BookingManagement = () => {
 
   const handleOverrideSubmit = async () => {
     if (!overrideReason.trim()) {
-      alert('Please provide a reason for the override');
+      setAlertModal({
+        isOpen: true,
+        title: 'Required Field',
+        message: 'Please provide a reason for the override',
+        type: 'warning'
+      });
       return;
     }
 
@@ -151,16 +199,38 @@ const BookingManagement = () => {
 
   const handleBulkCancel = async () => {
     if (selectedBookings.length === 0) {
-      alert('Please select bookings to cancel');
+      setAlertModal({
+        isOpen: true,
+        title: 'No Selection',
+        message: 'Please select bookings to cancel',
+        type: 'warning'
+      });
       return;
     }
 
-    if (!window.confirm(`Cancel ${selectedBookings.length} selected bookings?`)) return;
+    setConfirmModal({
+      isOpen: true,
+      title: 'Bulk Cancel Bookings',
+      message: `Cancel ${selectedBookings.length} selected bookings? You will be asked to provide a reason.`,
+      isDangerous: false,
+      onConfirm: () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        setPromptModal({
+          isOpen: true,
+          title: 'Bulk Cancellation',
+          label: 'Reason for bulk cancellation',
+          placeholder: 'Enter bulk cancellation reason...',
+          onConfirm: (notes) => bulkCancelWithNotes(notes)
+        });
+      }
+    });
+  };
 
-    const notes = prompt('Reason for bulk cancellation:');
+  const bulkCancelWithNotes = async (notes) => {
     try {
       await bulkCancelBookings(selectedBookings, notes || 'Bulk cancelled by admin');
       setSuccess(`${selectedBookings.length} bookings cancelled`);
+      setPromptModal(prev => ({ ...prev, isOpen: false }));
       setSelectedBookings([]);
       fetchBookings();
       setTimeout(() => setSuccess(null), 3000);
@@ -168,6 +238,43 @@ const BookingManagement = () => {
       setError('Failed to bulk cancel bookings');
       console.error('Error bulk cancelling:', err);
     }
+  };
+
+  const handleBulkDelete = async () => {
+    const cancelledBookings = selectedBookings.filter(id => {
+      const booking = bookings.find(b => b.id === id);
+      return booking && booking.status === 'CANCELLED';
+    });
+
+    if (cancelledBookings.length === 0) {
+      setAlertModal({
+        isOpen: true,
+        title: 'No Cancelled Bookings',
+        message: 'Please select only cancelled bookings to delete',
+        type: 'warning'
+      });
+      return;
+    }
+
+    setConfirmModal({
+      isOpen: true,
+      title: 'Bulk Delete Cancelled Bookings',
+      message: `Permanently delete ${cancelledBookings.length} selected cancelled bookings? This cannot be undone.`,
+      isDangerous: true,
+      onConfirm: async () => {
+        try {
+          await bulkDeleteBookings(cancelledBookings);
+          setSuccess(`${cancelledBookings.length} bookings deleted`);
+          setConfirmModal(prev => ({ ...prev, isOpen: false }));
+          setSelectedBookings([]);
+          fetchBookings();
+          setTimeout(() => setSuccess(null), 3000);
+        } catch (err) {
+          setError('Failed to bulk delete bookings');
+          console.error('Error bulk deleting:', err);
+        }
+      }
+    });
   };
 
   const toggleBookingSelection = (bookingId) => {
@@ -204,12 +311,21 @@ const BookingManagement = () => {
             + New Booking
           </button>
           {selectedBookings.length > 0 && (
-            <button
-              className="btn btn-danger"
-              onClick={handleBulkCancel}
-            >
-              Cancel Selected ({selectedBookings.length})
-            </button>
+            <>
+              <button
+                className="btn btn-danger"
+                onClick={handleBulkCancel}
+              >
+                Cancel Selected ({selectedBookings.length})
+              </button>
+              <button
+                className="btn btn-danger"
+                style={{ backgroundColor: '#d32f2f', borderColor: '#d32f2f' }}
+                onClick={handleBulkDelete}
+              >
+                Delete Selected ({selectedBookings.length})
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -319,10 +435,34 @@ const BookingManagement = () => {
                   </td>
                   <td>
                     <strong>{booking.room_name}</strong>
-                    {booking.is_recurring && <span className="badge badge-info ml-1">Recurring</span>}
+                    {booking.is_recurring && !booking.parent_booking && (
+                      <span className="badge badge-info ml-1" title="This is a recurring booking - approval will apply to all instances">
+                        📅 Recurring Series
+                      </span>
+                    )}
+                    {booking.is_recurring && booking.parent_booking && (
+                      <span className="badge badge-light ml-1" title="This is an instance of a recurring booking">
+                        📅 Recurring Instance
+                      </span>
+                    )}
                   </td>
                   <td>{booking.user_name || booking.user_email}</td>
-                  <td>{formatDate(booking.date)}</td>
+                  <td>
+                    {booking.is_recurring && !booking.parent_booking && booking.recurrence_end_date ? (
+                      <>
+                        {formatDate(booking.date)} - {formatDate(booking.recurrence_end_date)}
+                        <br />
+                        <small style={{ color: '#666' }}>
+                          {booking.recurrence_pattern === 'DAILY' && 'Daily'}
+                          {booking.recurrence_pattern === 'WEEKLY' && 'Weekly'}
+                          {booking.recurrence_pattern === 'BIWEEKLY' && 'Bi-weekly'}
+                          {booking.recurrence_pattern === 'MONTHLY' && 'Monthly'}
+                        </small>
+                      </>
+                    ) : (
+                      formatDate(booking.date)
+                    )}
+                  </td>
                   <td>
                     {booking.time_slot_details &&
                       `${formatTime(booking.time_slot_details.start_time)} - ${formatTime(booking.time_slot_details.end_time)}`
@@ -451,6 +591,32 @@ const BookingManagement = () => {
           onClose={() => setShowCreateBooking(false)}
         />
       )}
+
+      <PromptModal
+        isOpen={promptModal.isOpen}
+        title={promptModal.title}
+        label={promptModal.label}
+        placeholder={promptModal.placeholder}
+        onConfirm={promptModal.onConfirm}
+        onCancel={() => setPromptModal(prev => ({ ...prev, isOpen: false }))}
+      />
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        isDangerous={confirmModal.isDangerous}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+      />
+
+      <AlertModal
+        isOpen={alertModal.isOpen}
+        title={alertModal.title}
+        message={alertModal.message}
+        type={alertModal.type}
+        onClose={() => setAlertModal(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 };
