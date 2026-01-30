@@ -44,7 +44,6 @@ INSTALLED_APPS = [
     'apps.users',
     'apps.scheduling',
     'apps.simulation',
-    'apps.analytics',
 ]
 
 MIDDLEWARE = [
