@@ -4,6 +4,7 @@ from apps.scheduling.views import (
     BookingViewSet, RoomViewSet, TimeSlotViewSet,
     EquipmentViewSet, WaitlistViewSet
 )
+from apps.scheduling.equipment_config_views import EquipmentConfigViewSet
 from apps.simulation.views import SimulationViewSet
 
 router = DefaultRouter()
@@ -18,6 +19,9 @@ router.register(r'scheduling/rooms', RoomViewSet, basename='room')
 router.register(r'scheduling/timeslots', TimeSlotViewSet, basename='timeslot')
 router.register(r'scheduling/equipment', EquipmentViewSet, basename='equipment')
 router.register(r'scheduling/waitlist', WaitlistViewSet, basename='waitlist')
+
+# Equipment Configuration endpoints
+router.register(r'equipment-config', EquipmentConfigViewSet, basename='equipment-config')
 
 # Simulation endpoints
 router.register(r'simulation', SimulationViewSet, basename='simulation')

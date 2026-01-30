@@ -5,6 +5,7 @@ from .views import (
     RoomViewSet, TimeSlotViewSet, BookingViewSet,
     EquipmentViewSet, WaitlistViewSet
 )
+from .equipment_config_views import EquipmentConfigViewSet
 
 app_name = 'scheduling'
 
@@ -14,6 +15,7 @@ router.register(r'time-slots', TimeSlotViewSet, basename='timeslot')
 router.register(r'bookings', BookingViewSet, basename='booking')
 router.register(r'equipment', EquipmentViewSet, basename='equipment')
 router.register(r'waitlist', WaitlistViewSet, basename='waitlist')
+router.register(r'equipment-config', EquipmentConfigViewSet, basename='equipment-config')
 
 urlpatterns = [
     path('', include(router.urls)),
