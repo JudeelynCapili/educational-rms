@@ -2,14 +2,10 @@
   "buildCommand": "cd frontend && npm run build",
   "outputDirectory": "frontend/dist",
   "installCommand": "cd frontend && npm ci",
-  "routes": [
+  "rewrites": [
     {
-      "src": "/api/(.*)",
-      "status": 404
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }
