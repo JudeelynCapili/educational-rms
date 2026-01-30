@@ -1,0 +1,458 @@
+import React, { useState, useEffect } from 'react';
+import {
+  getBookings, approveBooking, rejectBooking, cancelBooking,
+  overrideConflict, bulkCancelBookings, deleteBooking
+} from '../../../services/schedulingApi';
+import QuickCreateBooking from '../../Dashboard/QuickCreateBooking';
+import './BookingManagement.css';
+
+const BookingManagement = () => {
+  const [bookings, setBookings] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
+  const [selectedBookings, setSelectedBookings] = useState([]);
+  const [showOverrideModal, setShowOverrideModal] = useState(false);
+  const [currentBooking, setCurrentBooking] = useState(null);
+  const [overrideReason, setOverrideReason] = useState('');
+  const [showCreateBooking, setShowCreateBooking] = useState(false);
+  
+  const [filters, setFilters] = useState({
+    status: 'PENDING',
+    room_id: '',
+    start_date: '',
+    end_date: '',
+    is_recurring: ''
+  });
+
+  const statusOptions = [
+    { value: '', label: 'All Status' },
+    { value: 'PENDING', label: 'Pending' },
+    { value: 'APPROVED', label: 'Approved' },
+    { value: 'REJECTED', label: 'Rejected' },
+    { value: 'CONFIRMED', label: 'Confirmed' },
+    { value: 'CANCELLED', label: 'Cancelled' },
+    { value: 'COMPLETED', label: 'Completed' }
+  ];
+
+  const priorityBadge = {
+    LOW: 'badge-low',
+    MEDIUM: 'badge-medium',
+    HIGH: 'badge-high',
+    URGENT: 'badge-urgent'
+  };
+
+  useEffect(() => {
+    fetchBookings();
+  }, [filters]);
+
+  const fetchBookings = async () => {
+    try {
+      setLoading(true);
+      const params = {};
+      if (filters.status) params.status = filters.status;
+      if (filters.room_id) params.room_id = filters.room_id;
+      if (filters.start_date) params.start_date = filters.start_date;
+      if (filters.end_date) params.end_date = filters.end_date;
+      if (filters.is_recurring) params.is_recurring = filters.is_recurring;
+
+      const data = await getBookings(params);
+      setBookings(Array.isArray(data) ? data : data.results || []);
+      setError(null);
+    } catch (err) {
+      setError('Failed to fetch bookings');
+      console.error('Error fetching bookings:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFilterChange = (e) => {
+    const { name, value } = e.target;
+    setFilters(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleApprove = async (bookingId) => {
+    try {
+      await approveBooking(bookingId);
+      setSuccess('Booking approved successfully');
+      fetchBookings();
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError('Failed to approve booking');
+      console.error('Error approving booking:', err);
+    }
+  };
+
+  const handleReject = async (bookingId) => {
+    const notes = prompt('Reason for rejection (optional):');
+    try {
+      await rejectBooking(bookingId, notes || '');
+      setSuccess('Booking rejected');
+      fetchBookings();
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError('Failed to reject booking');
+      console.error('Error rejecting booking:', err);
+    }
+  };
+
+  const handleCancel = async (bookingId) => {
+    if (!window.confirm('Are you sure you want to cancel this booking?')) return;
+    
+    const notes = prompt('Reason for cancellation (optional):');
+    try {
+      await cancelBooking(bookingId, { notes: notes || '' });
+      setSuccess('Booking cancelled');
+      fetchBookings();
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError('Failed to cancel booking');
+      console.error('Error cancelling booking:', err);
+    }
+  };
+
+  const handleDelete = async (bookingId) => {
+    if (!window.confirm('Delete this cancelled booking permanently? This cannot be undone.')) return;
+    try {
+      await deleteBooking(bookingId);
+      setSuccess('Booking deleted');
+      fetchBookings();
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError('Failed to delete booking');
+      console.error('Error deleting booking:', err);
+    }
+  };
+
+  const openOverrideModal = (booking) => {
+    setCurrentBooking(booking);
+    setOverrideReason('');
+    setShowOverrideModal(true);
+  };
+
+  const handleOverrideSubmit = async () => {
+    if (!overrideReason.trim()) {
+      alert('Please provide a reason for the override');
+      return;
+    }
+
+    try {
+      await overrideConflict(currentBooking.id, overrideReason);
+      setShowOverrideModal(false);
+      setSuccess('Conflict override applied');
+      fetchBookings();
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError('Failed to override conflict');
+      console.error('Error overriding conflict:', err);
+    }
+  };
+
+  const handleBulkCancel = async () => {
+    if (selectedBookings.length === 0) {
+      alert('Please select bookings to cancel');
+      return;
+    }
+
+    if (!window.confirm(`Cancel ${selectedBookings.length} selected bookings?`)) return;
+
+    const notes = prompt('Reason for bulk cancellation:');
+    try {
+      await bulkCancelBookings(selectedBookings, notes || 'Bulk cancelled by admin');
+      setSuccess(`${selectedBookings.length} bookings cancelled`);
+      setSelectedBookings([]);
+      fetchBookings();
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError('Failed to bulk cancel bookings');
+      console.error('Error bulk cancelling:', err);
+    }
+  };
+
+  const toggleBookingSelection = (bookingId) => {
+    setSelectedBookings(prev => {
+      if (prev.includes(bookingId)) {
+        return prev.filter(id => id !== bookingId);
+      } else {
+        return [...prev, bookingId];
+      }
+    });
+  };
+
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  const formatTime = (timeString) => {
+    return timeString.substring(0, 5);
+  };
+
+  return (
+    <div className="booking-management">
+      <div className="booking-management-header">
+        <h2>Booking Management</h2>
+        <div className="header-actions">
+          <button
+            className="btn btn-primary"
+            onClick={() => setShowCreateBooking(true)}
+          >
+            + New Booking
+          </button>
+          {selectedBookings.length > 0 && (
+            <button
+              className="btn btn-danger"
+              onClick={handleBulkCancel}
+            >
+              Cancel Selected ({selectedBookings.length})
+            </button>
+          )}
+        </div>
+      </div>
+
+      {error && (
+        <div className="alert alert-error">
+          {error}
+          <button onClick={() => setError(null)} className="alert-close">×</button>
+        </div>
+      )}
+
+      {success && (
+        <div className="alert alert-success">
+          {success}
+          <button onClick={() => setSuccess(null)} className="alert-close">×</button>
+        </div>
+      )}
+
+      {/* Filters */}
+      <div className="filters">
+        <select
+          name="status"
+          value={filters.status}
+          onChange={handleFilterChange}
+          className="filter-select"
+        >
+          {statusOptions.map(option => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+
+        <input
+          type="date"
+          name="start_date"
+          value={filters.start_date}
+          onChange={handleFilterChange}
+          className="filter-input"
+          placeholder="Start Date"
+        />
+
+        <input
+          type="date"
+          name="end_date"
+          value={filters.end_date}
+          onChange={handleFilterChange}
+          className="filter-input"
+          placeholder="End Date"
+        />
+
+        <select
+          name="is_recurring"
+          value={filters.is_recurring}
+          onChange={handleFilterChange}
+          className="filter-select"
+        >
+          <option value="">All Bookings</option>
+          <option value="true">Recurring Only</option>
+          <option value="false">One-time Only</option>
+        </select>
+      </div>
+
+      {/* Bookings Table */}
+      {loading ? (
+        <div className="loading">Loading bookings...</div>
+      ) : bookings.length === 0 ? (
+        <div className="no-data">No bookings found</div>
+      ) : (
+        <div className="table-container">
+          <table className="bookings-table">
+            <thead>
+              <tr>
+                <th>
+                  <input
+                    type="checkbox"
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedBookings(bookings.map(b => b.id));
+                      } else {
+                        setSelectedBookings([]);
+                      }
+                    }}
+                    checked={selectedBookings.length === bookings.length && bookings.length > 0}
+                  />
+                </th>
+                <th>Room</th>
+                <th>User</th>
+                <th>Date</th>
+                <th>Time</th>
+                <th>Purpose</th>
+                <th>Status</th>
+                <th>Priority</th>
+                <th>Participants</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {bookings.map(booking => (
+                <tr key={booking.id} className={selectedBookings.includes(booking.id) ? 'selected' : ''}>
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={selectedBookings.includes(booking.id)}
+                      onChange={() => toggleBookingSelection(booking.id)}
+                    />
+                  </td>
+                  <td>
+                    <strong>{booking.room_name}</strong>
+                    {booking.is_recurring && <span className="badge badge-info ml-1">Recurring</span>}
+                  </td>
+                  <td>{booking.user_name || booking.user_email}</td>
+                  <td>{formatDate(booking.date)}</td>
+                  <td>
+                    {booking.time_slot_details &&
+                      `${formatTime(booking.time_slot_details.start_time)} - ${formatTime(booking.time_slot_details.end_time)}`
+                    }
+                  </td>
+                  <td className="purpose-cell">{booking.purpose}</td>
+                  <td>
+                    <span className={`badge badge-${booking.status.toLowerCase()}`}>
+                      {booking.status}
+                    </span>
+                  </td>
+                  <td>
+                    <span className={`badge ${priorityBadge[booking.priority]}`}>
+                      {booking.priority}
+                    </span>
+                  </td>
+                  <td>{booking.participants_count}</td>
+                  <td>
+                    <div className="action-buttons">
+                      {booking.status === 'PENDING' && (
+                        <>
+                          <button
+                            className="btn btn-sm btn-success"
+                            onClick={() => handleApprove(booking.id)}
+                            title="Approve"
+                          >
+                            ✓
+                          </button>
+                          <button
+                            className="btn btn-sm btn-danger"
+                            onClick={() => handleReject(booking.id)}
+                            title="Reject"
+                          >
+                            ✗
+                          </button>
+                        </>
+                      )}
+                      
+                      {['APPROVED', 'CONFIRMED'].includes(booking.status) && (
+                        <button
+                          className="btn btn-sm btn-warning"
+                          onClick={() => handleCancel(booking.id)}
+                          title="Cancel"
+                        >
+                          Cancel
+                        </button>
+                      )}
+
+                      {booking.status === 'CANCELLED' && (
+                        <button
+                          className="btn btn-sm btn-danger"
+                          onClick={() => handleDelete(booking.id)}
+                          title="Delete"
+                        >
+                          Delete
+                        </button>
+                      )}
+
+                      {!booking.conflict_override && (
+                        <button
+                          className="btn btn-sm btn-secondary"
+                          onClick={() => openOverrideModal(booking)}
+                          title="Override Conflict"
+                        >
+                          Override
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Override Modal */}
+      {showOverrideModal && (
+        <div className="modal-overlay" onClick={() => setShowOverrideModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Override Conflict Detection</h3>
+              <button className="modal-close" onClick={() => setShowOverrideModal(false)}>×</button>
+            </div>
+
+            <div className="modal-body">
+              <p>
+                <strong>Room:</strong> {currentBooking?.room_name}<br />
+                <strong>Date:</strong> {formatDate(currentBooking?.date)}<br />
+                <strong>User:</strong> {currentBooking?.user_name}
+              </p>
+
+              <div className="form-group">
+                <label>Reason for Override *</label>
+                <textarea
+                  value={overrideReason}
+                  onChange={(e) => setOverrideReason(e.target.value)}
+                  rows="4"
+                  className="form-input"
+                  placeholder="Provide a detailed reason for overriding the conflict detection..."
+                />
+              </div>
+            </div>
+
+            <div className="modal-actions">
+              <button
+                className="btn btn-secondary"
+                onClick={() => setShowOverrideModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={handleOverrideSubmit}
+              >
+                Apply Override
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCreateBooking && (
+        <QuickCreateBooking
+          onCreated={fetchBookings}
+          onClose={() => setShowCreateBooking(false)}
+        />
+      )}
+    </div>
+  );
+};
+
+export default BookingManagement;
