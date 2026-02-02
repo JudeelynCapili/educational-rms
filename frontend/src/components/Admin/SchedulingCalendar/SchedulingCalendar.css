@@ -192,28 +192,43 @@
   position: relative;
   min-height: 60px;
   overflow: visible;
+  display: flex;
+  flex-direction: column;
 }
 
 .calendar-cell:last-child {
   border-right: none;
 }
 
+.calendar-events-container {
+  display: flex;
+  flex-direction: row;
+  gap: 2px;
+  width: 100%;
+  height: 100%;
+  align-items: stretch;
+  flex-wrap: nowrap;
+  position: relative;
+}
+
 .calendar-event {
-  position: absolute;
-  left: 6px;
-  right: 6px;
-  padding: 4px 8px;
-  margin-bottom: 4px;
+  padding: 4px 6px;
   border-radius: 4px;
   color: white;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 11px;
   transition: opacity 0.2s;
   z-index: 2;
+  flex: 1 1 auto;
+  min-width: 30px;
+  overflow: hidden;
+  position: absolute;
+  box-sizing: border-box;
 }
 
 .calendar-event:hover {
   opacity: 0.8;
+  z-index: 10;
 }
 
 .event-title {
@@ -221,11 +236,23 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-size: 10px;
 }
 
 .event-user {
-  font-size: 11px;
+  font-size: 9px;
   opacity: 0.9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.calendar-event.continuation {
+  opacity: 0.75;
+}
+
+.calendar-event.start {
+  opacity: 1;
 }
 
 /* Day View */

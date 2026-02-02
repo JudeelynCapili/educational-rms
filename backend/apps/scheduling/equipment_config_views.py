@@ -167,9 +167,15 @@ class EquipmentConfigViewSet(viewsets.ViewSet):
             )
         
         try:
+            room_id = int(room_id)
             room = Room.objects.prefetch_related('equipment').get(id=room_id)
             serializer = RoomEquipmentDetailSerializer(room)
             return Response(serializer.data)
+        except ValueError:
+            return Response(
+                {'error': 'room_id must be an integer'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         except Room.DoesNotExist:
             return Response(
                 {'error': f'Room with id {room_id} does not exist'},
@@ -204,10 +210,16 @@ class EquipmentConfigViewSet(viewsets.ViewSet):
             )
         
         try:
+            room_id = int(room_id)
             equipment = EquipmentConfigService.get_unlinked_equipment(room_id)
             from .serializers import EquipmentSerializer
             serializer = EquipmentSerializer(equipment, many=True)
             return Response(serializer.data)
+        except ValueError:
+            return Response(
+                {'error': 'room_id must be an integer'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         except Exception as e:
             return Response(
                 {'error': str(e)},

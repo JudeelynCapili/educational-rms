@@ -4,7 +4,7 @@ import Login from '../features/auth/components/Login';
 import Register from '../features/auth/components/Register';
 import Dashboard from '../components/Dashboard/Dashboard';
 import AdminScheduling from '../components/Admin/AdminScheduling/AdminScheduling';
-import EquipmentConfig from '../components/Admin/EquipmentConfig';
+import CapacityAnalyzer from '../components/Admin/CapacityAnalyzer/CapacityAnalyzer';
 import MainLayout from '../components/Layout/MainLayout';
 import ProtectedRoute from './ProtectedRoute';
 import { useAuthStore } from '../stores/authStore';
@@ -42,11 +42,11 @@ const AppRoutes = () => {
         />
 
         <Route
-          path="/admin/equipment-config"
+          path="/capacity"
           element={
             <ProtectedRoute>
               <MainLayout userRole={user?.role}>
-                <EquipmentConfig />
+                <CapacityAnalyzer />
               </MainLayout>
             </ProtectedRoute>
           }

@@ -109,6 +109,12 @@ const QuickCreateBooking = ({ onCreated, onClose }) => {
         participants_count: formData.participants_count ? Number(formData.participants_count) : formData.participants_count,
       };
 
+      // Only include recurrence fields if is_recurring is true
+      if (!payload.is_recurring) {
+        delete payload.recurrence_pattern;
+        delete payload.recurrence_end_date;
+      }
+
       console.log('Submitting booking payload:', payload);
       await createBooking(payload);
       

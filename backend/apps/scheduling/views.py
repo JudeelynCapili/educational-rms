@@ -483,7 +483,19 @@ class BookingViewSet(viewsets.ModelViewSet):
         """Get bookings for calendar view."""
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
-        room_ids = request.query_params.getlist('room_ids[]')
+        # Try to get room_ids from comma-separated parameter first
+        room_ids = request.query_params.get('room_ids')
+        if room_ids:
+            # Handle comma-separated format
+            room_ids = [int(rid.strip()) for rid in room_ids.split(',') if rid.strip()]
+        else:
+            # Fallback to array format and convert to integers
+            room_ids = request.query_params.getlist('room_ids[]')
+            if room_ids:
+                try:
+                    room_ids = [int(rid) for rid in room_ids if rid]
+                except (ValueError, TypeError):
+                    room_ids = []
         
         if not start_date or not end_date:
             return Response(
