@@ -6,6 +6,7 @@ from apps.scheduling.views import (
 )
 from apps.scheduling.equipment_config_views import EquipmentConfigViewSet
 from apps.simulation.views import SimulationViewSet
+from apps.simulation.capacity_analysis import CapacityAnalysisViewSet
 
 router = DefaultRouter()
 
@@ -25,5 +26,8 @@ router.register(r'equipment-config', EquipmentConfigViewSet, basename='equipment
 
 # Simulation endpoints
 router.register(r'simulation', SimulationViewSet, basename='simulation')
+
+# Capacity Analysis endpoints
+router.register(r'capacity', CapacityAnalysisViewSet, basename='capacity')
 
 urlpatterns = router.urls

@@ -187,9 +187,10 @@ export const getCalendarEvents = async (startDate, endDate, roomIds = []) => {
     end_date: endDate,
   };
 
-  // Send all room IDs when provided
-  if (roomIds.length > 0) {
-    params['room_ids[]'] = roomIds;
+  // Send all room IDs when provided - convert to comma-separated string
+  if (roomIds && roomIds.length > 0) {
+    params.room_ids = roomIds.join(',');
+    console.log('Fetching calendar events with rooms:', roomIds);
   }
 
   const response = await api.get('/scheduling/bookings/calendar/', { params });

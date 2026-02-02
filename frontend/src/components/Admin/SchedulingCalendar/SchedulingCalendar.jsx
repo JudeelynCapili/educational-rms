@@ -122,6 +122,23 @@ const SchedulingCalendar = () => {
     return colors[status] || '#757575';
   };
 
+  const getRoomColor = (roomId) => {
+    const palette = [
+      '#1e88e5',
+      '#8e24aa',
+      '#43a047',
+      '#f4511e',
+      '#3949ab',
+      '#00897b',
+      '#6d4c41',
+      '#c0ca33',
+      '#d81b60',
+      '#546e7a'
+    ];
+    if (!roomId) return '#1976d2';
+    return palette[roomId % palette.length];
+  };
+
   const getEventPositionStyle = (event, cellHeight) => {
     const start = new Date(event.start);
     const end = new Date(event.end);
@@ -185,27 +202,45 @@ const SchedulingCalendar = () => {
                   const dayStr = day.toISOString().split('T')[0];
                   const dayEvents = events.filter(event => {
                     const eventDate = event.start.split('T')[0];
-                    const eventHour = parseInt(event.start.split('T')[1].split(':')[0]);
-                    return eventDate === dayStr && eventHour === hour;
+                    if (eventDate !== dayStr) return false;
+
+                    const start = new Date(event.start);
+                    const startHour = start.getHours();
+                    return hour === startHour;
                   });
 
                   return (
                     <div key={`${day}-${hour}`} className="calendar-cell">
-                      {dayEvents.map(event => (
-                        <div
-                          key={event.id}
-                          className="calendar-event"
-                          style={{
-                            backgroundColor: getStatusColor(event.status),
-                            ...getEventPositionStyle(event, hourRowHeight),
-                          }}
-                          onClick={() => setSelectedEvent(event)}
-                          title={`${event.resource_name}: ${event.purpose}`}
-                        >
-                          <div className="event-title">{event.resource_name}</div>
-                          <div className="event-user">{event.user_name}</div>
+                      {dayEvents.length > 0 ? (
+                        <div className="calendar-events-container">
+                          {dayEvents.map((event, index) => {
+                            const position = getEventPositionStyle(event, hourRowHeight);
+                            const widthPercent = 100 / dayEvents.length;
+
+                            return (
+                              <div
+                                key={event.id}
+                                className="calendar-event start"
+                                style={{
+                                  backgroundColor: getRoomColor(event.resource_id),
+                                  borderLeft: `4px solid ${getStatusColor(event.status)}`,
+                                  top: position.top,
+                                  height: position.height,
+                                  left: `calc(${index * widthPercent}% + 2px)`,
+                                  width: `calc(${widthPercent}% - 4px)`
+                                }}
+                                onClick={() => setSelectedEvent(event)}
+                                title={`${event.resource_name}: ${event.purpose}`}
+                              >
+                                <div className="event-title">{event.resource_name}</div>
+                                <div className="event-user">{event.user_name}</div>
+                              </div>
+                            );
+                          })}
                         </div>
-                      ))}
+                      ) : (
+                        <div></div>
+                      )}
                     </div>
                   );
                 })}
