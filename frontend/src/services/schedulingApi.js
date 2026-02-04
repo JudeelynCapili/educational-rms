@@ -174,19 +174,25 @@ export const bulkCancelBookings = async (bookingIds, notes = '') => {
   return response.data;
 };
 
+export const bulkDeleteBookings = async (bookingIds) => {
+  const response = await api.post('/scheduling/bookings/bulk_delete/', {
+    booking_ids: bookingIds
+  });
+  return response.data;
+};
+
 export const getCalendarEvents = async (startDate, endDate, roomIds = []) => {
   const params = {
     start_date: startDate,
-    end_date: endDate
+    end_date: endDate,
   };
-  
-  // Add room IDs if provided
-  if (roomIds.length > 0) {
-    roomIds.forEach(roomId => {
-      params['room_ids[]'] = roomId;
-    });
+
+  // Send all room IDs when provided - convert to comma-separated string
+  if (roomIds && roomIds.length > 0) {
+    params.room_ids = roomIds.join(',');
+    console.log('Fetching calendar events with rooms:', roomIds);
   }
-  
+
   const response = await api.get('/scheduling/bookings/calendar/', { params });
   return response.data;
 };
@@ -274,6 +280,7 @@ export default {
   cancelBooking,
   overrideConflict,
   bulkCancelBookings,
+  bulkDeleteBookings,
   getCalendarEvents,
   dragUpdateBooking,
   

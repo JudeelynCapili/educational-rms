@@ -4,7 +4,9 @@ from apps.scheduling.views import (
     BookingViewSet, RoomViewSet, TimeSlotViewSet,
     EquipmentViewSet, WaitlistViewSet
 )
+from apps.scheduling.equipment_config_views import EquipmentConfigViewSet
 from apps.simulation.views import SimulationViewSet
+from apps.simulation.capacity_analysis import CapacityAnalysisViewSet
 
 router = DefaultRouter()
 
@@ -19,7 +21,13 @@ router.register(r'scheduling/timeslots', TimeSlotViewSet, basename='timeslot')
 router.register(r'scheduling/equipment', EquipmentViewSet, basename='equipment')
 router.register(r'scheduling/waitlist', WaitlistViewSet, basename='waitlist')
 
+# Equipment Configuration endpoints
+router.register(r'equipment-config', EquipmentConfigViewSet, basename='equipment-config')
+
 # Simulation endpoints
 router.register(r'simulation', SimulationViewSet, basename='simulation')
+
+# Capacity Analysis endpoints
+router.register(r'capacity', CapacityAnalysisViewSet, basename='capacity')
 
 urlpatterns = router.urls

@@ -1,9 +1,14 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import {
   getRooms, createRoom, updateRoom, deleteRoom,
-  getEquipment, addEquipmentToRoom, removeEquipmentFromRoom
+  getEquipment
 } from '../../../services/schedulingApi';
+import ConfirmModal from '../../../components/Common/Modal/ConfirmModal';
+import AlertModal from '../../../components/Common/Modal/AlertModal';
 import './RoomManagement.css';
+
+const API_BASE = 'http://localhost:8000/api/v1';
 
 const RoomManagement = () => {
   const [rooms, setRooms] = useState([]);
@@ -19,6 +24,10 @@ const RoomManagement = () => {
     is_active: 'true'
   });
 
+  // Modal states
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: null, isDangerous: false });
+  const [alertModal, setAlertModal] = useState({ isOpen: false, title: '', message: '', type: 'info' });
+
   const [formData, setFormData] = useState({
     name: '',
     room_type: 'LAB',
@@ -31,6 +40,8 @@ const RoomManagement = () => {
   });
 
   const [selectedEquipment, setSelectedEquipment] = useState([]);
+  const [equipmentQuantities, setEquipmentQuantities] = useState({}); // { equipmentId: quantity }
+  const [roomEquipment, setRoomEquipment] = useState([]); // Equipment already assigned to room
 
   const roomTypes = [
     { value: 'LAB', label: 'Computer Lab' },
@@ -132,10 +143,50 @@ const RoomManagement = () => {
     setShowModal(true);
   };
 
-  const openEquipmentModal = (room) => {
+  const openEquipmentModal = async (room) => {
     setCurrentRoom(room);
-    setSelectedEquipment(room.equipment?.map(e => e.id) || []);
     setShowEquipmentModal(true);
+    
+    // Fetch current room equipment distribution
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await axios.get(
+        `${API_BASE}/equipment-config/equipment_distribution/`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      // Build current assignments map
+      const roomAssignments = {};
+      const enrichedEquipment = response.data.map(equip => {
+        const roomAssignment = equip.rooms.find(r => r.id === room.id);
+        const currentQty = roomAssignment ? roomAssignment.quantity_in_room : 0;
+        
+        if (currentQty > 0) {
+          roomAssignments[equip.equipment_id] = currentQty;
+        }
+        
+        return {
+          equipment_id: equip.equipment_id,
+          name: equip.name,
+          description: equip.description,
+          category: equip.category || 'General',
+          total_quantity: equip.total_quantity,
+          available_quantity: equip.available_quantity,
+          currently_assigned: currentQty
+        };
+      });
+      
+      setEquipmentQuantities(roomAssignments);
+      setRoomEquipment(enrichedEquipment);
+    } catch (error) {
+      console.error('Failed to load equipment distribution:', error);
+      setAlertModal({
+        isOpen: true,
+        title: 'Error',
+        message: 'Failed to load equipment data',
+        type: 'error'
+      });
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -167,42 +218,98 @@ const RoomManagement = () => {
   const handleEquipmentSave = async () => {
     try {
       setLoading(true);
-      const currentEquipmentIds = currentRoom.equipment?.map(e => e.id) || [];
+      const token = localStorage.getItem('access_token');
       
-      // Find equipment to add and remove
-      const toAdd = selectedEquipment.filter(id => !currentEquipmentIds.includes(id));
-      const toRemove = currentEquipmentIds.filter(id => !selectedEquipment.includes(id));
-
-      if (toAdd.length > 0) {
-        await addEquipmentToRoom(currentRoom.id, toAdd);
+      // Distribute equipment with quantities
+      for (const [equipmentId, quantity] of Object.entries(equipmentQuantities)) {
+        if (quantity > 0) {
+          await axios.post(
+            `${API_BASE}/equipment-config/distribute-equipment/`,
+            {
+              room_id: currentRoom.id,
+              equipment_id: parseInt(equipmentId),
+              quantity: parseInt(quantity)
+            },
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+        }
       }
-      if (toRemove.length > 0) {
-        await removeEquipmentFromRoom(currentRoom.id, toRemove);
-      }
 
+      setAlertModal({
+        isOpen: true,
+        title: 'Success',
+        message: 'Equipment distribution updated successfully',
+        type: 'success'
+      });
+      
       setShowEquipmentModal(false);
       fetchRooms();
     } catch (err) {
-      setError('Failed to update equipment');
+      setAlertModal({
+        isOpen: true,
+        title: 'Error',
+        message: err.response?.data?.error || 'Failed to update equipment',
+        type: 'error'
+      });
       console.error('Error updating equipment:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this room?')) return;
-
+  const handleRemoveEquipment = async (equipmentId) => {
     try {
-      setLoading(true);
-      await deleteRoom(id);
-      fetchRooms();
+      const token = localStorage.getItem('access_token');
+      await axios.post(
+        `${API_BASE}/equipment-config/remove-equipment-from-room/`,
+        {
+          room_id: currentRoom.id,
+          equipment_id: equipmentId
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      // Update local state
+      const newQuantities = { ...equipmentQuantities };
+      delete newQuantities[equipmentId];
+      setEquipmentQuantities(newQuantities);
+      
+      setAlertModal({
+        isOpen: true,
+        title: 'Success',
+        message: 'Equipment removed successfully',
+        type: 'success'
+      });
     } catch (err) {
-      setError('Failed to delete room');
-      console.error('Error deleting room:', err);
-    } finally {
-      setLoading(false);
+      setAlertModal({
+        isOpen: true,
+        title: 'Error',
+        message: err.response?.data?.error || 'Failed to remove equipment',
+        type: 'error'
+      });
     }
+  };
+
+  const handleDelete = async (id) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Delete Room',
+      message: 'Are you sure you want to delete this room? This cannot be undone.',
+      isDangerous: true,
+      onConfirm: async () => {
+        try {
+          setLoading(true);
+          await deleteRoom(id);
+          setConfirmModal(prev => ({ ...prev, isOpen: false }));
+          fetchRooms();
+        } catch (err) {
+          setError('Failed to delete room');
+          console.error('Error deleting room:', err);
+        } finally {
+          setLoading(false);
+        }
+      }
+    });
   };
 
   const toggleEquipment = (equipmentId) => {
@@ -285,7 +392,16 @@ const RoomManagement = () => {
                 <p><strong>Capacity:</strong> {room.capacity} people</p>
                 {room.floor && <p><strong>Floor:</strong> {room.floor}</p>}
                 {room.building && <p><strong>Building:</strong> {room.building}</p>}
-                <p><strong>Equipment:</strong> {room.equipment_count || 0} items</p>
+                <p><strong>Equipment Items:</strong> {room.equipment_count || 0} types</p>
+                {room.equipment_count > 0 && (
+                  <button
+                    className="btn-link"
+                    onClick={() => openEquipmentModal(room)}
+                    style={{ fontSize: '0.875rem', padding: '0', marginTop: '4px', textDecoration: 'underline' }}
+                  >
+                    View equipment details →
+                  </button>
+                )}
               </div>
 
               <div className="room-card-actions">
@@ -426,25 +542,103 @@ const RoomManagement = () => {
       {/* Equipment Modal */}
       {showEquipmentModal && (
         <div className="modal-overlay" onClick={() => setShowEquipmentModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-content large-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Manage Equipment - {currentRoom?.name}</h3>
               <button className="modal-close" onClick={() => setShowEquipmentModal(false)}>×</button>
             </div>
 
-            <div className="equipment-list">
-              {equipment.map(item => (
-                <div key={item.id} className="equipment-item">
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={selectedEquipment.includes(item.id)}
-                      onChange={() => toggleEquipment(item.id)}
-                    />
-                    {' '}{item.name} ({item.quantity} available)
-                  </label>
+            <div className="equipment-distribution">
+              <h4>Assign Equipment Quantities</h4>
+              <p className="help-text">Enter the quantity of each equipment item to assign to this room.</p>
+              
+              {roomEquipment.length > 0 ? (
+                <div className="equipment-table">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Equipment</th>
+                        <th>Category</th>
+                        <th>Total Available</th>
+                        <th>Can Assign</th>
+                        <th>Currently Here</th>
+                        <th>Assign Quantity</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {roomEquipment.map(item => {
+                        const currentlyAssigned = item.currently_assigned || 0;
+                        const maxAvailable = item.available_quantity + currentlyAssigned;
+                        const newQuantity = equipmentQuantities[item.equipment_id] !== undefined 
+                          ? equipmentQuantities[item.equipment_id] 
+                          : currentlyAssigned;
+                        
+                        return (
+                          <tr key={item.equipment_id}>
+                            <td>
+                              <strong>{item.name}</strong>
+                              {item.description && (
+                                <small style={{ display: 'block', color: '#666' }}>
+                                  {item.description}
+                                </small>
+                              )}
+                            </td>
+                            <td>{item.category}</td>
+                            <td>{item.total_quantity}</td>
+                            <td style={{ color: maxAvailable > 0 ? '#28a745' : '#dc3545', fontWeight: 'bold' }}>
+                              {maxAvailable}
+                            </td>
+                            <td>
+                              {currentlyAssigned > 0 ? (
+                                <span style={{ color: '#0066cc', fontWeight: 'bold' }}>{currentlyAssigned}</span>
+                              ) : (
+                                <span style={{ color: '#999' }}>-</span>
+                              )}
+                            </td>
+                            <td>
+                              <input
+                                type="number"
+                                min="0"
+                                max={maxAvailable}
+                                value={newQuantity}
+                                onChange={(e) => {
+                                  const value = parseInt(e.target.value) || 0;
+                                  if (value <= maxAvailable) {
+                                    setEquipmentQuantities(prev => ({
+                                      ...prev,
+                                      [item.equipment_id]: value
+                                    }));
+                                  }
+                                }}
+                                className="quantity-input"
+                                style={{ width: '80px' }}
+                                placeholder="0"
+                              />
+                              <small style={{ display: 'block', color: '#666', marginTop: '4px' }}>
+                                Max: {maxAvailable}
+                              </small>
+                            </td>
+                            <td>
+                              {currentlyAssigned > 0 && (
+                                <button
+                                  className="btn btn-sm btn-danger"
+                                  onClick={() => handleRemoveEquipment(item.equipment_id)}
+                                  title="Remove all from this room"
+                                >
+                                  Clear
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
-              ))}
+              ) : (
+                <p>Loading equipment...</p>
+              )}
             </div>
 
             <div className="modal-actions">
@@ -459,13 +653,29 @@ const RoomManagement = () => {
                 onClick={handleEquipmentSave}
                 disabled={loading}
               >
-                {loading ? 'Saving...' : 'Save'}
+                {loading ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
           </div>
         </div>
       )}
-    </div>
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        isDangerous={confirmModal.isDangerous}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+      />
+
+      <AlertModal
+        isOpen={alertModal.isOpen}
+        title={alertModal.title}
+        message={alertModal.message}
+        type={alertModal.type}
+        onClose={() => setAlertModal(prev => ({ ...prev, isOpen: false }))}
+      />    </div>
   );
 };
 
