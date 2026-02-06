@@ -20,7 +20,7 @@ import {
 } from 'react-icons/fi';
 import './Sidebar.css';
 
-const Sidebar = ({ userRole, onCollapsedChange }) => {
+const Sidebar = ({ userRole, onCollapsedChange, fullyHideOnCollapse = false }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [expandedMenus, setExpandedMenus] = useState({});
   const navigate = useNavigate();
@@ -188,22 +188,25 @@ const Sidebar = ({ userRole, onCollapsedChange }) => {
     });
   };
 
-  const renderNestedSubmenu = (submenu, parentId, isParentExpanded, isParentCollapsed) => {
-    if (!submenu || !isParentExpanded || isParentCollapsed) return null;
+  // Recursive function to render submenus at any level
+  const renderSubmenu = (submenu, level = 0) => {
+    if (!submenu) return null;
+
+    const submenuClass = level === 0 ? 'submenu' : 'submenu nested-submenu';
 
     return (
-      <ul className="submenu nested-submenu">
+      <ul className={submenuClass}>
         {submenu.map((subitem) => {
           const hasNestedSubmenu = subitem.submenu && subitem.submenu.length > 0;
-          const isNestedExpanded = expandedMenus[subitem.id];
-          const isNestedActive = hasNestedSubmenu
+          const isExpanded = expandedMenus[subitem.id];
+          const isActiveItem = hasNestedSubmenu
             ? isSubmenuActive(subitem.submenu)
             : isActive(subitem.path);
 
           return (
             <li key={subitem.id} className="submenu-item">
               <button
-                className={`submenu-link ${isNestedActive ? 'active' : ''}`}
+                className={`submenu-link ${isActiveItem ? 'active' : ''}`}
                 onClick={() => {
                   if (hasNestedSubmenu) {
                     toggleSubmenu(subitem.id);
@@ -215,17 +218,18 @@ const Sidebar = ({ userRole, onCollapsedChange }) => {
                 {subitem.icon && <span className="submenu-icon">{subitem.icon}</span>}
                 <div className="submenu-content">
                   <span className="submenu-label">{subitem.label}</span>
-                  {subitem.description && !hasNestedSubmenu && (
+                  {subitem.description && (
                     <span className="submenu-desc">{subitem.description}</span>
                   )}
                 </div>
                 {hasNestedSubmenu && (
-                  <span className={`submenu-arrow ${isNestedExpanded ? 'expanded' : ''}`}>
+                  <span className={`submenu-arrow ${isExpanded ? 'expanded' : ''}`}>
                     <FiChevronDown />
                   </span>
                 )}
               </button>
-              {hasNestedSubmenu && renderNestedSubmenu(subitem.submenu, subitem.id, isNestedExpanded, isParentCollapsed)}
+              {/* Recursively render nested submenus */}
+              {hasNestedSubmenu && isExpanded && renderSubmenu(subitem.submenu, level + 1)}
             </li>
           );
         })}
@@ -234,76 +238,87 @@ const Sidebar = ({ userRole, onCollapsedChange }) => {
   };
 
   return (
-    <div className={`sidebar ${isCollapsed ? 'collapsed' : ''}`}>
-      {/* Sidebar Header */}
-      <div className="sidebar-header">
-        <div className={`sidebar-brand ${isCollapsed ? 'hidden' : ''}`}>
-          <div className="brand-icon">
-            <FiLayers />
-          </div>
-          <span className="brand-text">RMS</span>
-        </div>
+    <>
+      {/* Floating toggle button - only shows when fully hidden */}
+      {fullyHideOnCollapse && (
         <button
-          className="toggle-btn"
+          className={`floating-toggle ${isCollapsed ? 'show' : ''}`}
           onClick={handleToggleCollapse}
-          title={isCollapsed ? 'Expand' : 'Collapse'}
+          title="Open Menu"
         >
-          {isCollapsed ? <FiMenu /> : <FiX />}
+          <FiMenu />
         </button>
-      </div>
+      )}
 
-      {/* Navigation Menu */}
-      <nav className="sidebar-nav">
-        <ul className="nav-list">
-          {menuItems.map((item) => {
-            if (!item.available) return null;
+      <div className={`sidebar ${isCollapsed ? 'collapsed' : ''} ${fullyHideOnCollapse && isCollapsed ? 'fully-hidden' : ''}`}>
+        {/* Sidebar Header */}
+        <div className="sidebar-header">
+          <div className={`sidebar-brand ${isCollapsed ? 'hidden' : ''}`}>
+            <div className="brand-icon">
+              <FiLayers />
+            </div>
+            <span className="brand-text">RMS</span>
+          </div>
+          <button
+            className="toggle-btn"
+            onClick={handleToggleCollapse}
+            title={isCollapsed ? 'Expand' : 'Collapse'}
+          >
+            {isCollapsed ? <FiMenu /> : <FiX />}
+          </button>
+        </div>
 
-            const hasSubmenu = item.submenu && item.submenu.length > 0;
-            const isExpanded = expandedMenus[item.id];
-            const isActiveMenu = hasSubmenu
-              ? isSubmenuActive(item.submenu)
-              : isActive(item.path);
+        {/* Navigation Menu */}
+        <nav className="sidebar-nav">
+          <ul className="nav-list">
+            {menuItems.map((item) => {
+              if (!item.available) return null;
 
-            return (
-              <li key={item.id} className="nav-item">
-                <button
-                  className={`nav-link ${isActiveMenu ? 'active' : ''}`}
-                  onClick={() => handleNavigation(item)}
-                  title={isCollapsed ? item.label : ''}
-                >
-                  <span className="nav-icon">{item.icon}</span>
-                  <span className={`nav-label ${isCollapsed ? 'hidden' : ''}`}>
-                    {item.label}
-                  </span>
-                  {hasSubmenu && (
-                    <span
-                      className={`submenu-arrow ${isExpanded ? 'expanded' : ''}`}
-                    >
-                      <FiChevronDown />
+              const hasSubmenu = item.submenu && item.submenu.length > 0;
+              const isExpanded = expandedMenus[item.id];
+              const isActiveMenu = hasSubmenu
+                ? isSubmenuActive(item.submenu)
+                : isActive(item.path);
+
+              return (
+                <li key={item.id} className="nav-item">
+                  <button
+                    className={`nav-link ${isActiveMenu ? 'active' : ''}`}
+                    onClick={() => handleNavigation(item)}
+                    title={isCollapsed ? item.label : ''}
+                  >
+                    <span className="nav-icon">{item.icon}</span>
+                    <span className={`nav-label ${isCollapsed ? 'hidden' : ''}`}>
+                      {item.label}
                     </span>
-                  )}
-                </button>
+                    {hasSubmenu && !isCollapsed && (
+                      <span
+                        className={`submenu-arrow ${isExpanded ? 'expanded' : ''}`}
+                      >
+                        <FiChevronDown />
+                      </span>
+                    )}
+                  </button>
 
-                {/* Submenu - supports nested submenus */}
-                {hasSubmenu && isExpanded && !isCollapsed && (
-                  renderNestedSubmenu(item.submenu, item.id, true, false)
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      </nav>
+                  {/* Render submenu when expanded and not collapsed */}
+                  {hasSubmenu && isExpanded && !isCollapsed && renderSubmenu(item.submenu)}
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
 
-      {/* Sidebar Footer */}
-      <div className={`sidebar-footer ${isCollapsed ? 'collapsed-footer' : ''}`}>
-        <div className="sidebar-info">
-          <div className="info-icon"><FiInfo /></div>
-          <p className={`info-text ${isCollapsed ? 'hidden' : ''}`}>
-            Manage all scheduling and resource tasks from here
-          </p>
+        {/* Sidebar Footer */}
+        <div className={`sidebar-footer ${isCollapsed ? 'collapsed-footer' : ''}`}>
+          <div className="sidebar-info">
+            <div className="info-icon"><FiInfo /></div>
+            <p className={`info-text ${isCollapsed ? 'hidden' : ''}`}>
+              Manage all scheduling and resource tasks from here
+            </p>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 

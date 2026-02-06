@@ -1,11 +1,11 @@
 import React from 'react';
-import './Dashboard.css';
+import styles from './WelcomeSection.module.css';
 
 const WelcomeSection = ({ userName }) => {
   return (
-    <div className="welcome-section">
-      <h2>Welcome back, {userName}!</h2>
-      <p>Here's what's happening with your resources today.</p>
+    <div className={styles.welcomeSection}>
+      <h2 className={styles.welcomeTitle}>Welcome back, {userName}!</h2>
+      <p className={styles.welcomeText}>Here's what's happening with your resources today.</p>
     </div>
   );
 };

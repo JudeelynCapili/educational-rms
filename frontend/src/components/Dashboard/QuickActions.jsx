@@ -1,71 +1,46 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import QuickCreateBooking from './QuickCreateBooking';
-import './Dashboard.css';
+import NewBookingAction from './QuickActions/NewBookingAction';
+import RunSimulationAction from './QuickActions/RunSimulationAction';
+import EditProfileAction from './QuickActions/EditProfileAction';
+import AdminSchedulingAction from './QuickActions/AdminSchedulingAction';
+import useBookingModal from '../../hooks/useBookingModal';
+import styles from './QuickActions.module.css';
 
 const QuickActions = ({ onEditProfile, userRole, onBookingCreated }) => {
   const navigate = useNavigate();
   const isAdmin = userRole === 'ADMIN' || userRole === 'FACULTY';
-  const [showCreateBooking, setShowCreateBooking] = useState(false);
+  const { showCreateBooking, openModal, closeModal } = useBookingModal();
 
   const handleBookingCreated = () => {
-    setShowCreateBooking(false);
+    closeModal();
     if (onBookingCreated) onBookingCreated();
   };
 
   return (
     <>
-      <div className="section-card">
-        <div className="section-header">
-          <h2 className="section-title">Quick Actions</h2>
+      <div className={styles.sectionCard}>
+        <div className={styles.sectionHeader}>
+          <h2 className={styles.sectionTitle}>Quick Actions</h2>
         </div>
-        <div className="quick-actions">
-          <button 
-            className="action-btn"
-            onClick={() => setShowCreateBooking(true)}
-          >
-            <div className="action-icon">📅</div>
-            <div className="action-text">
-              <div className="action-title">New Booking</div>
-              <div className="action-description">Reserve a resource</div>
-            </div>
-          </button>
-        <button className="action-btn">
-          <div className="action-icon">📊</div>
-          <div className="action-text">
-            <div className="action-title">Run Simulation</div>
-            <div className="action-description">Analyze usage patterns</div>
-          </div>
-        </button>
-        <button className="action-btn" onClick={onEditProfile}>
-          <div className="action-icon">👤</div>
-          <div className="action-text">
-            <div className="action-title">Edit Profile</div>
-            <div className="action-description">Update your information</div>
-          </div>
-        </button>
-        {isAdmin && (
-          <button 
-            className="action-btn admin-action" 
-            onClick={() => navigate('/admin-scheduling')}
-          >
-            <div className="action-icon">⚙️</div>
-            <div className="action-text">
-              <div className="action-title">Admin Scheduling</div>
-              <div className="action-description">Manage resources & bookings</div>
-            </div>
-          </button>
-        )}
+        <div className={styles.quickActions}>
+          <NewBookingAction onClick={openModal} />
+          <RunSimulationAction onClick={() => {/* Add simulation logic here */}} />
+          <EditProfileAction onClick={onEditProfile} />
+          {isAdmin && (
+            <AdminSchedulingAction onClick={() => navigate('/admin-scheduling')} />
+          )}
+        </div>
       </div>
-    </div>
 
-    {showCreateBooking && (
-      <QuickCreateBooking
-        onCreated={handleBookingCreated}
-        onClose={() => setShowCreateBooking(false)}
-      />
-    )}
-  </>
+      {showCreateBooking && (
+        <QuickCreateBooking
+          onCreated={handleBookingCreated}
+          onClose={closeModal}
+        />
+      )}
+    </>
   );
 };
 

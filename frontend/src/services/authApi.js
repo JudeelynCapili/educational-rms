@@ -6,49 +6,66 @@ import api from './api';
 export const authApi = {
   // Register a new user
   register: async (userData) => {
-    const response = await api.post('/auth/users/register/', userData);
-    return response.data;
+    try {
+      const response = await api.post('/auth/users/register/', userData);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
   },
 
   // Login user
   login: async (email, password) => {
-    const response = await api.post('/auth/users/login/', {
-      email,
-      password,
-    });
-    return response.data;
+    try {
+      const response = await api.post('/auth/users/login/', { email, password });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
   },
 
   // Logout
   logout: async () => {
-    const response = await api.post('/auth/users/logout/');
-    return response.data;
+    try {
+      const response = await api.post('/auth/users/logout/');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
   },
 
   // Get current user details
   getCurrentUser: async () => {
-    const token = localStorage.getItem('access_token');
-    console.log('getCurrentUser: Token from localStorage:', token ? token.substring(0, 20) + '...' : 'NO TOKEN');
-    const response = await api.get('/auth/users/me/');
-    return response.data;
+    try {
+      const response = await api.get('/auth/users/me/');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
   },
 
   // Refresh token
   refreshToken: async (refreshToken) => {
-    const response = await api.post('/auth/users/refresh_token/', {
-      refresh: refreshToken,
-    });
-    return response.data;
+    try {
+      const response = await api.post('/auth/users/refresh_token/', { refresh: refreshToken });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
   },
 
   // Change password
   changePassword: async (oldPassword, newPassword, newPasswordConfirm) => {
-    const response = await api.post('/auth/users/change_password/', {
-      old_password: oldPassword,
-      new_password: newPassword,
-      new_password_confirm: newPasswordConfirm,
-    });
-    return response.data;
+    try {
+      const response = await api.post('/auth/users/change_password/', {
+        old_password: oldPassword,
+        new_password: newPassword,
+        new_password_confirm: newPasswordConfirm,
+      });
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || error;
+    }
   },
 
   // Get available roles

@@ -1,15 +1,9 @@
 import React from 'react';
 import { FaUserCircle, FaChalkboardTeacher } from 'react-icons/fa';
+import { getInitials } from '../../utils/userUtils';
 import './Dashboard.css';
 
 const DashboardHeader = ({ user, onLogout }) => {
-  const getInitials = (firstName, lastName, username) => {
-    if (firstName && lastName) {
-      return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
-    }
-    return username.substring(0, 2).toUpperCase();
-  };
-
   return (
     <div className="dashboard-header">
       <div className="header-content">
