@@ -1,5 +1,23 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import {
+  FiGrid,
+  FiCalendar,
+  FiBarChart2,
+  FiMenu,
+  FiX,
+  FiChevronDown,
+  FiInfo,
+  FiLayers,
+  FiActivity,
+  FiTrendingUp,
+  FiAlertTriangle,
+  FiTool,
+  FiClock,
+  FiZap,
+  FiAlertCircle,
+  FiSettings,
+} from 'react-icons/fi';
 import './Sidebar.css';
 
 const Sidebar = ({ userRole, onCollapsedChange }) => {
@@ -26,26 +44,121 @@ const Sidebar = ({ userRole, onCollapsedChange }) => {
     {
       id: 'dashboard',
       label: 'Dashboard',
-      icon: '📊',
+      icon: <FiGrid />,
       path: '/dashboard',
       available: true,
     },
     {
       id: 'scheduling',
       label: 'Scheduling & Resources',
-      icon: '📅',
+      icon: <FiCalendar />,
       available: isAdmin,
       path: '/admin-scheduling',
       state: { tab: 'calendar' },
       description: 'Manage scheduling, bookings, and rooms',
     },
     {
-      id: 'simulation',
+      id: 'bookings',
+      label: 'Bookings Overview',
+      icon: <FiCalendar />,
+      available: isAdmin,
+      path: '/bookings',
+      description: 'View and manage all resource bookings',
+    },
+    {
+      id: 'capacity',
       label: 'Capacity Analysis',
-      icon: '📊',
+      icon: <FiBarChart2 />,
       path: '/capacity',
       available: isAdmin,
       description: 'Monitor utilization and plan growth',
+    },
+    {
+      id: 'modeling-simulation',
+      label: 'Modeling & Simulation',
+      icon: <FiActivity />,
+      available: isAdmin,
+      submenu: [
+        {
+          id: 'modeling',
+          label: 'Modeling',
+          icon: <FiLayers />,
+          description: 'Resource analysis models',
+          submenu: [
+            {
+              id: 'resource-utilization',
+              label: 'Resource Utilization',
+              icon: <FiBarChart2 />,
+              path: '/modeling/resource-utilization',
+              description: 'Measure resource usage vs availability',
+            },
+            {
+              id: 'demand-forecasting',
+              label: 'Demand Forecasting',
+              icon: <FiTrendingUp />,
+              path: '/modeling/demand-forecasting',
+              description: 'Predict future booking demand',
+            },
+            {
+              id: 'booking-conflict',
+              label: 'Booking Conflict Model',
+              icon: <FiAlertTriangle />,
+              path: '/modeling/booking-conflict',
+              description: 'Detect and predict scheduling clashes',
+            },
+            {
+              id: 'equipment-usage',
+              label: 'Equipment Usage',
+              icon: <FiTool />,
+              path: '/modeling/equipment-usage',
+              description: 'Analyze equipment wear and demand',
+            },
+          ],
+        },
+        {
+          id: 'simulation',
+          label: 'Simulation',
+          icon: <FiSettings />,
+          description: 'Simulation scenarios',
+          submenu: [
+            {
+              id: 'room-usage-sim',
+              label: 'Room Usage Simulation',
+              icon: <FiGrid />,
+              path: '/simulation/room-usage',
+              description: 'Simulate room booking patterns',
+            },
+            {
+              id: 'equipment-usage-sim',
+              label: 'Equipment Usage Simulation',
+              icon: <FiTool />,
+              path: '/simulation/equipment-usage',
+              description: 'Simulate equipment availability',
+            },
+            {
+              id: 'peak-hour-scenario',
+              label: 'Peak-Hour Scenarios',
+              icon: <FiClock />,
+              path: '/simulation/peak-hour',
+              description: 'Test high-demand scenarios',
+            },
+            {
+              id: 'shortage-scenario',
+              label: 'Shortage Scenarios',
+              icon: <FiAlertCircle />,
+              path: '/simulation/shortage',
+              description: 'Analyze resource shortages',
+            },
+            {
+              id: 'what-if-analysis',
+              label: 'What-If Analysis',
+              icon: <FiZap />,
+              path: '/simulation/what-if',
+              description: 'Explore parameter variations',
+            },
+          ],
+        },
+      ],
     },
   ];
 
@@ -65,15 +178,69 @@ const Sidebar = ({ userRole, onCollapsedChange }) => {
   };
 
   const isActive = (path) => location.pathname === path;
-  const isSubmenuActive = (submenu) =>
-    submenu.some((item) => isActive(item.path));
+  
+  const isSubmenuActive = (submenu) => {
+    if (!submenu) return false;
+    return submenu.some((item) => {
+      if (item.path) return isActive(item.path);
+      if (item.submenu) return isSubmenuActive(item.submenu);
+      return false;
+    });
+  };
+
+  const renderNestedSubmenu = (submenu, parentId, isParentExpanded, isParentCollapsed) => {
+    if (!submenu || !isParentExpanded || isParentCollapsed) return null;
+
+    return (
+      <ul className="submenu nested-submenu">
+        {submenu.map((subitem) => {
+          const hasNestedSubmenu = subitem.submenu && subitem.submenu.length > 0;
+          const isNestedExpanded = expandedMenus[subitem.id];
+          const isNestedActive = hasNestedSubmenu
+            ? isSubmenuActive(subitem.submenu)
+            : isActive(subitem.path);
+
+          return (
+            <li key={subitem.id} className="submenu-item">
+              <button
+                className={`submenu-link ${isNestedActive ? 'active' : ''}`}
+                onClick={() => {
+                  if (hasNestedSubmenu) {
+                    toggleSubmenu(subitem.id);
+                  } else {
+                    navigate(subitem.path, { state: subitem.state });
+                  }
+                }}
+              >
+                {subitem.icon && <span className="submenu-icon">{subitem.icon}</span>}
+                <div className="submenu-content">
+                  <span className="submenu-label">{subitem.label}</span>
+                  {subitem.description && !hasNestedSubmenu && (
+                    <span className="submenu-desc">{subitem.description}</span>
+                  )}
+                </div>
+                {hasNestedSubmenu && (
+                  <span className={`submenu-arrow ${isNestedExpanded ? 'expanded' : ''}`}>
+                    <FiChevronDown />
+                  </span>
+                )}
+              </button>
+              {hasNestedSubmenu && renderNestedSubmenu(subitem.submenu, subitem.id, isNestedExpanded, isParentCollapsed)}
+            </li>
+          );
+        })}
+      </ul>
+    );
+  };
 
   return (
     <div className={`sidebar ${isCollapsed ? 'collapsed' : ''}`}>
       {/* Sidebar Header */}
       <div className="sidebar-header">
         <div className={`sidebar-brand ${isCollapsed ? 'hidden' : ''}`}>
-          <div className="brand-icon">RM</div>
+          <div className="brand-icon">
+            <FiLayers />
+          </div>
           <span className="brand-text">RMS</span>
         </div>
         <button
@@ -81,7 +248,7 @@ const Sidebar = ({ userRole, onCollapsedChange }) => {
           onClick={handleToggleCollapse}
           title={isCollapsed ? 'Expand' : 'Collapse'}
         >
-          {isCollapsed ? '→' : '←'}
+          {isCollapsed ? <FiMenu /> : <FiX />}
         </button>
       </div>
 
@@ -112,33 +279,14 @@ const Sidebar = ({ userRole, onCollapsedChange }) => {
                     <span
                       className={`submenu-arrow ${isExpanded ? 'expanded' : ''}`}
                     >
-                      ▶
+                      <FiChevronDown />
                     </span>
                   )}
                 </button>
 
-                {/* Submenu */}
+                {/* Submenu - supports nested submenus */}
                 {hasSubmenu && isExpanded && !isCollapsed && (
-                  <ul className="submenu">
-                    {item.submenu.map((subitem) => (
-                      <li key={subitem.id} className="submenu-item">
-                        <button
-                          className={`submenu-link ${
-                            isActive(subitem.path) ? 'active' : ''
-                          }`}
-                          onClick={() =>
-                            navigate(subitem.path, { state: subitem.state })
-                          }
-                        >
-                          <span className="submenu-icon">{subitem.icon}</span>
-                          <span className="submenu-label">{subitem.label}</span>
-                          <span className="submenu-desc">
-                            {subitem.description}
-                          </span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
+                  renderNestedSubmenu(item.submenu, item.id, true, false)
                 )}
               </li>
             );
@@ -149,7 +297,7 @@ const Sidebar = ({ userRole, onCollapsedChange }) => {
       {/* Sidebar Footer */}
       <div className={`sidebar-footer ${isCollapsed ? 'collapsed-footer' : ''}`}>
         <div className="sidebar-info">
-          <div className="info-icon">ℹ️</div>
+          <div className="info-icon"><FiInfo /></div>
           <p className={`info-text ${isCollapsed ? 'hidden' : ''}`}>
             Manage all scheduling and resource tasks from here
           </p>

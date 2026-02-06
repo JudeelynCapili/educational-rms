@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { FiClock, FiHome, FiWatch, FiList, FiCalendar, FiAlertTriangle } from 'react-icons/fi';
 import QuickBookingApproval from './QuickBookingApproval';
 import './Dashboard.css';
 
@@ -34,7 +35,7 @@ const AdminSchedulingStats = ({ schedulingStats, onBookingUpdate }) => {
       {/* Scheduling Stats Cards */}
       <div className="scheduling-stats-grid">
         <div className="scheduling-stat-card pending">
-          <div className="stat-icon-large">⏳</div>
+          <div className="stat-icon-large"><FiClock size={32} color="#f59e0b" /></div>
           <div className="stat-info">
             <p className="stat-value">{schedulingStats.pending_approvals}</p>
             <p className="stat-label">Pending Approvals</p>
@@ -42,7 +43,7 @@ const AdminSchedulingStats = ({ schedulingStats, onBookingUpdate }) => {
         </div>
 
         <div className="scheduling-stat-card">
-          <div className="stat-icon-large">🏢</div>
+          <div className="stat-icon-large"><FiHome size={32} color="#3b82f6" /></div>
           <div className="stat-info">
             <p className="stat-value">{schedulingStats.total_rooms}</p>
             <p className="stat-label">Active Rooms</p>
@@ -50,7 +51,7 @@ const AdminSchedulingStats = ({ schedulingStats, onBookingUpdate }) => {
         </div>
 
         <div className="scheduling-stat-card">
-          <div className="stat-icon-large">⏰</div>
+          <div className="stat-icon-large"><FiWatch size={32} color="#8b5cf6" /></div>
           <div className="stat-info">
             <p className="stat-value">{schedulingStats.active_time_slots}</p>
             <p className="stat-label">Time Slots</p>
@@ -58,7 +59,7 @@ const AdminSchedulingStats = ({ schedulingStats, onBookingUpdate }) => {
         </div>
 
         <div className="scheduling-stat-card">
-          <div className="stat-icon-large">📋</div>
+          <div className="stat-icon-large"><FiList size={32} color="#06b6d4" /></div>
           <div className="stat-info">
             <p className="stat-value">{schedulingStats.waitlist_entries}</p>
             <p className="stat-label">Waitlist Entries</p>
@@ -66,7 +67,7 @@ const AdminSchedulingStats = ({ schedulingStats, onBookingUpdate }) => {
         </div>
 
         <div className="scheduling-stat-card">
-          <div className="stat-icon-large">📅</div>
+          <div className="stat-icon-large"><FiCalendar size={32} color="#10b981" /></div>
           <div className="stat-info">
             <p className="stat-value">{schedulingStats.upcoming_bookings}</p>
             <p className="stat-label">Upcoming (7 Days)</p>
@@ -74,7 +75,7 @@ const AdminSchedulingStats = ({ schedulingStats, onBookingUpdate }) => {
         </div>
 
         <div className="scheduling-stat-card warning">
-          <div className="stat-icon-large">⚠️</div>
+          <div className="stat-icon-large"><FiAlertTriangle size={32} color="#ef4444" /></div>
           <div className="stat-info">
             <p className="stat-value">{schedulingStats.conflicts_today}</p>
             <p className="stat-label">Conflicts Today</p>

@@ -215,40 +215,51 @@
 /* Buttons */
 .btn {
   padding: 0.75rem 1.5rem;
-  border-radius: 10px;
+  border-radius: 12px;
   font-size: 0.9375rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   border: none;
   outline: none;
+  font-family: 'Roboto', Arial, sans-serif;
 }
 
 .btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+  transform: none;
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  background: linear-gradient(135deg, #1e3a5f 0%, #3b82f6 100%);
   color: white;
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+  box-shadow: 0 4px 12px rgba(30, 58, 95, 0.3);
 }
 
 .btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #2d5287 0%, #2d5287 100%);
   transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35);
+  box-shadow: 0 8px 20px rgba(30, 58, 95, 0.4);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 4px 12px rgba(30, 58, 95, 0.3);
 }
 
 .btn-secondary {
   background: white;
-  color: #64748b;
-  border: 2px solid #e2e8f0;
+  color: #1e293b;
+  border: 2px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background: #f8fafc;
-  border-color: #cbd5e1;
+  background: #f0f4f8;
+  border-color: #3b82f6;
+  color: #1e293b;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
 }
 
 /* Responsive */

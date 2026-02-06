@@ -1,16 +1,36 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from '../features/auth/components/Login';
 import Register from '../features/auth/components/Register';
 import Dashboard from '../components/Dashboard/Dashboard';
 import AdminScheduling from '../components/Admin/AdminScheduling/AdminScheduling';
 import CapacityAnalyzer from '../components/Admin/CapacityAnalyzer/CapacityAnalyzer';
+import BookingsVisualization from '../components/Bookings/BookingsVisualization';
 import MainLayout from '../components/Layout/MainLayout';
 import ProtectedRoute from './ProtectedRoute';
 import { useAuthStore } from '../stores/authStore';
 
+// Modeling Components
+import ResourceUtilization from '../components/Modeling/ResourceUtilization';
+import DemandForecasting from '../components/Modeling/DemandForecasting';
+import BookingConflictModel from '../components/Modeling/BookingConflictModel';
+import EquipmentUsageModel from '../components/Modeling/EquipmentUsageModel';
+
+// Simulation Components
+import RoomUsageSimulation from '../components/Simulation/RoomUsageSimulation';
+import EquipmentUsageSimulation from '../components/Simulation/EquipmentUsageSimulation';
+import PeakHourScenario from '../components/Simulation/PeakHourScenario';
+import ShortageScenario from '../components/Simulation/ShortageScenario';
+import WhatIfAnalysis from '../components/Simulation/WhatIfAnalysis';
+
 const AppRoutes = () => {
-  const { user } = useAuthStore();
+  const { user, initAuth } = useAuthStore();
+
+  // Initialize auth on component mount (only once)
+  useEffect(() => {
+    console.log('AppRoutes: Mounting, calling initAuth');
+    initAuth();
+  }, []);
 
   return (
     <Router>
@@ -47,6 +67,118 @@ const AppRoutes = () => {
             <ProtectedRoute>
               <MainLayout userRole={user?.role}>
                 <CapacityAnalyzer />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/bookings"
+          element={
+            <ProtectedRoute requiredRole="ADMIN">
+              <MainLayout userRole={user?.role}>
+                <BookingsVisualization />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Modeling Routes */}
+        <Route
+          path="/modeling/resource-utilization"
+          element={
+            <ProtectedRoute requiredRole="ADMIN">
+              <MainLayout userRole={user?.role}>
+                <ResourceUtilization />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/modeling/demand-forecasting"
+          element={
+            <ProtectedRoute requiredRole="ADMIN">
+              <MainLayout userRole={user?.role}>
+                <DemandForecasting />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/modeling/booking-conflict"
+          element={
+            <ProtectedRoute requiredRole="ADMIN">
+              <MainLayout userRole={user?.role}>
+                <BookingConflictModel />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/modeling/equipment-usage"
+          element={
+            <ProtectedRoute requiredRole="ADMIN">
+              <MainLayout userRole={user?.role}>
+                <EquipmentUsageModel />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Simulation Routes */}
+        <Route
+          path="/simulation/room-usage"
+          element={
+            <ProtectedRoute requiredRole="ADMIN">
+              <MainLayout userRole={user?.role}>
+                <RoomUsageSimulation />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/simulation/equipment-usage"
+          element={
+            <ProtectedRoute requiredRole="ADMIN">
+              <MainLayout userRole={user?.role}>
+                <EquipmentUsageSimulation />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/simulation/peak-hour"
+          element={
+            <ProtectedRoute requiredRole="ADMIN">
+              <MainLayout userRole={user?.role}>
+                <PeakHourScenario />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/simulation/shortage"
+          element={
+            <ProtectedRoute requiredRole="ADMIN">
+              <MainLayout userRole={user?.role}>
+                <ShortageScenario />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/simulation/what-if"
+          element={
+            <ProtectedRoute requiredRole="ADMIN">
+              <MainLayout userRole={user?.role}>
+                <WhatIfAnalysis />
               </MainLayout>
             </ProtectedRoute>
           }

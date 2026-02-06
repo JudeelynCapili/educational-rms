@@ -21,7 +21,10 @@ const RoomManagement = () => {
   const [filters, setFilters] = useState({
     search: '',
     room_type: '',
-    is_active: 'true'
+    is_active: 'true',
+    availability: '',
+    date: '',
+    equipment_category: ''
   });
 
   // Modal states
@@ -63,6 +66,13 @@ const RoomManagement = () => {
       if (filters.search) params.search = filters.search;
       if (filters.room_type) params.room_type = filters.room_type;
       if (filters.is_active) params.is_active = filters.is_active;
+      if (filters.equipment_category) params.equipment_category = filters.equipment_category;
+      if (filters.date) {
+        params.date = filters.date;
+        params.availability = filters.availability || 'available';
+      } else if (filters.availability) {
+        params.availability = filters.availability;
+      }
 
       const data = await getRooms(params);
       setRooms(Array.isArray(data) ? data : data.results || []);
@@ -359,6 +369,37 @@ const RoomManagement = () => {
           {roomTypes.map(type => (
             <option key={type.value} value={type.value}>{type.label}</option>
           ))}
+        </select>
+
+        <select
+          name="equipment_category"
+          value={filters.equipment_category}
+          onChange={handleFilterChange}
+          className="filter-select"
+        >
+          <option value="">All Equipment Types</option>
+          {[...new Set(equipment.map(item => item.category).filter(Boolean))].map(category => (
+            <option key={category} value={category}>{category}</option>
+          ))}
+        </select>
+
+        <input
+          type="date"
+          name="date"
+          value={filters.date}
+          onChange={handleFilterChange}
+          className="filter-input"
+        />
+
+        <select
+          name="availability"
+          value={filters.availability}
+          onChange={handleFilterChange}
+          className="filter-select"
+        >
+          <option value="">All Availability</option>
+          <option value="available">Available</option>
+          <option value="unavailable">Unavailable</option>
         </select>
 
         <select

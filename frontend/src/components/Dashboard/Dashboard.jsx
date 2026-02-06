@@ -11,6 +11,7 @@ import RecentActivity from './RecentActivity';
 import QuickActions from './QuickActions';
 import AdminSchedulingStats from './AdminSchedulingStats';
 import MiniCalendar from './MiniCalendar';
+import { FiStar, FiArrowRight } from 'react-icons/fi';
 import './Dashboard.css';
 
 const Dashboard = () => {
@@ -152,9 +153,9 @@ const Dashboard = () => {
               onClick={() => navigate('/features/overview')}
               title="View all 10 features with dedicated landing pages"
             >
-              <span className="features-icon">⭐</span>
+              <span className="features-icon"><FiStar /></span>
               <span className="features-text">View All 10 Features</span>
-              <span className="features-arrow">→</span>
+              <span className="features-arrow"><FiArrowRight /></span>
             </button>
           </div>
         )}

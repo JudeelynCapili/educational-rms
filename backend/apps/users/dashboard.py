@@ -41,7 +41,12 @@ def dashboard_stats(request):
     }
     
     # Get recent bookings (limit 5)
-    recent_bookings = Booking.objects.filter(user=user).select_related('room', 'time_slot').order_by('-created_at')[:5]
+    # Admin/Faculty see all recent bookings, others see only their own
+    if user.role.upper() in ['ADMIN', 'FACULTY']:
+        recent_bookings = Booking.objects.all().select_related('room', 'time_slot', 'user').order_by('-created_at')[:5]
+    else:
+        recent_bookings = Booking.objects.filter(user=user).select_related('room', 'time_slot').order_by('-created_at')[:5]
+    
     bookings_data = [
         {
             'id': booking.id,
@@ -50,17 +55,31 @@ def dashboard_stats(request):
             'time': f"{booking.time_slot.start_time} - {booking.time_slot.end_time}",
             'status': booking.status,
             'purpose': booking.purpose,
+            'user_name': booking.user.get_full_name() or booking.user.username if user.role.upper() in ['ADMIN', 'FACULTY'] else None,
         }
         for booking in recent_bookings
     ]
     
     # Get booking stats
-    booking_stats = {
-        'total_bookings': Booking.objects.filter(user=user).count(),
-        'confirmed_bookings': Booking.objects.filter(user=user, status='CONFIRMED').count(),
-        'pending_bookings': Booking.objects.filter(user=user, status='PENDING').count(),
-        'cancelled_bookings': Booking.objects.filter(user=user, status='CANCELLED').count(),
-    }
+    # Admin/Faculty see system-wide stats, others see only their own
+    if user.role.upper() in ['ADMIN', 'FACULTY']:
+        booking_stats = {
+            'total_bookings': Booking.objects.count(),
+            'confirmed_bookings': Booking.objects.filter(status='CONFIRMED').count(),
+            'pending_bookings': Booking.objects.filter(status='PENDING').count(),
+            'approved_bookings': Booking.objects.filter(status='APPROVED').count(),
+            'cancelled_bookings': Booking.objects.filter(status='CANCELLED').count(),
+            'rejected_bookings': Booking.objects.filter(status='REJECTED').count(),
+        }
+    else:
+        booking_stats = {
+            'total_bookings': Booking.objects.filter(user=user).count(),
+            'confirmed_bookings': Booking.objects.filter(user=user, status='CONFIRMED').count(),
+            'pending_bookings': Booking.objects.filter(user=user, status='PENDING').count(),
+            'approved_bookings': Booking.objects.filter(user=user, status='APPROVED').count(),
+            'cancelled_bookings': Booking.objects.filter(user=user, status='CANCELLED').count(),
+            'rejected_bookings': Booking.objects.filter(user=user, status='REJECTED').count(),
+        }
     
     # Get simulation stats (if user has run simulations)
     simulation_stats = {
@@ -77,7 +96,7 @@ def dashboard_stats(request):
     
     # Admin-specific scheduling stats
     scheduling_stats = None
-    if user.role in ['ADMIN', 'FACULTY']:
+    if user.role.upper() in ['ADMIN', 'FACULTY']:
         today = timezone.now().date()
         week_from_now = today + timedelta(days=7)
         

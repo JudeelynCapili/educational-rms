@@ -14,7 +14,7 @@ class EquipmentSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Equipment
-        fields = ['id', 'name', 'description', 'quantity', 'assigned_quantity', 
+        fields = ['id', 'name', 'category', 'description', 'quantity', 'assigned_quantity', 
                   'available_quantity', 'is_active', 'created_at', 'updated_at']
         read_only_fields = ['id', 'assigned_quantity', 'available_quantity', 'created_at', 'updated_at']
     

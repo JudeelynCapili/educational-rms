@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useAuth from '../../../hooks/useAuth';
 import { LoginRegisterSkeleton } from '../../../components/Skeleton/Skeleton';
+import { FaEnvelope, FaLock, FaCalendarAlt, FaBullseye, FaChartBar } from 'react-icons/fa';
+import { motion } from 'framer-motion';
 import './Login.css';
 
 const Login = () => {
@@ -21,7 +23,6 @@ const Login = () => {
       ...prev,
       [name]: value,
     }));
-    // Clear validation error for this field when user starts typing
     if (validationErrors[name]) {
       setValidationErrors((prev) => ({
         ...prev,
@@ -71,8 +72,7 @@ const Login = () => {
   }
 
   return (
-    <div className="auth-container">
-      {/* Brand Side */}
+    <motion.div className="auth-container" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.6 }}>
       <div className="auth-brand-side">
         <div className="brand-content">
           <div className="brand-logo">
@@ -84,24 +84,23 @@ const Login = () => {
           </p>
           <div className="brand-features">
             <div className="brand-feature">
-              <div className="feature-icon">📅</div>
+              <FaCalendarAlt className="feature-icon" />
               <div className="feature-text">Smart scheduling and booking system</div>
             </div>
             <div className="brand-feature">
-              <div className="feature-icon">🎯</div>
+              <FaBullseye className="feature-icon" />
               <div className="feature-text">Real-time availability tracking</div>
             </div>
             <div className="brand-feature">
-              <div className="feature-icon">📊</div>
+              <FaChartBar className="feature-icon" />
               <div className="feature-text">Advanced analytics and reporting</div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Form Side */}
       <div className="auth-form-side">
-        <div className="auth-card">
+        <motion.div className="auth-card" initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.6 }}>
           <div className="auth-header">
             <h2 className="auth-title">Welcome Back</h2>
             <p className="auth-subtitle">Sign in to your account to continue</p>
@@ -116,16 +115,19 @@ const Login = () => {
           <form onSubmit={handleSubmit} className="auth-form">
             <div className="form-group">
               <label htmlFor="email" className="form-label">Email Address</label>
-              <input
-                type="email"
-                id="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                placeholder="you@university.edu"
-                className={`form-input ${validationErrors.email ? 'error' : ''}`}
-                disabled={isLoading}
-              />
+              <div className="input-with-icon">
+                <FaEnvelope className="input-icon" />
+                <input
+                  type="email"
+                  id="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  placeholder="you@university.edu"
+                  className={`form-input ${validationErrors.email ? 'error' : ''}`}
+                  disabled={isLoading}
+                />
+              </div>
               {validationErrors.email && (
                 <span className="error-message">{validationErrors.email}</span>
               )}
@@ -133,28 +135,27 @@ const Login = () => {
 
             <div className="form-group">
               <label htmlFor="password" className="form-label">Password</label>
-              <input
-                type="password"
-                id="password"
-                name="password"
-                value={formData.password}
-                onChange={handleChange}
-                placeholder="Enter your password"
-                className={`form-input ${validationErrors.password ? 'error' : ''}`}
-                disabled={isLoading}
-              />
+              <div className="input-with-icon">
+                <FaLock className="input-icon" />
+                <input
+                  type="password"
+                  id="password"
+                  name="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  placeholder="Enter your password"
+                  className={`form-input ${validationErrors.password ? 'error' : ''}`}
+                  disabled={isLoading}
+                />
+              </div>
               {validationErrors.password && (
                 <span className="error-message">{validationErrors.password}</span>
               )}
             </div>
 
-            <button
-              type="submit"
-              className="submit-btn"
-              disabled={isLoading}
-            >
+            <motion.button type="submit" className="submit-btn" disabled={isLoading} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }}>
               {isLoading ? 'Signing in...' : 'Sign In'}
-            </button>
+            </motion.button>
           </form>
 
           <div className="auth-footer">
@@ -165,9 +166,9 @@ const Login = () => {
               </a>
             </p>
           </div>
-        </div>
+        </motion.div>
       </div>
-    </div>
+    </motion.div>
   );
 };
 

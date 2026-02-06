@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { getEquipment, createEquipment, updateEquipment, deleteEquipment } from '../../../services/schedulingApi';
 import { getTimeSlots, createTimeSlot, updateTimeSlot, deleteTimeSlot } from '../../../services/schedulingApi';
@@ -19,6 +19,18 @@ const ResourceSettings = () => {
   const [showModal, setShowModal] = useState(false);
   const [currentItem, setCurrentItem] = useState(null);
   const [modalType, setModalType] = useState('equipment');
+  const [equipmentFilters, setEquipmentFilters] = useState({
+    search: '',
+    availability: '',
+    date: '',
+    category: ''
+  });
+  const [timeSlotFilters, setTimeSlotFilters] = useState({
+    search: '',
+    availability: '',
+    date: '',
+    slot_type: ''
+  });
 
   // Modal states
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: '', message: '', onConfirm: null, isDangerous: false });
@@ -26,6 +38,7 @@ const ResourceSettings = () => {
 
   const [equipmentForm, setEquipmentForm] = useState({
     name: '',
+    category: '',
     description: '',
     quantity: 1,
     is_active: true
@@ -44,6 +57,16 @@ const ResourceSettings = () => {
     { value: 'HOURLY', label: 'Hourly' },
     { value: 'DAILY', label: 'Daily' },
     { value: 'WEEKLY', label: 'Weekly' }
+  ];
+
+  const equipmentCategoryOptions = [
+    { value: '', label: 'Uncategorized' },
+    { value: 'AV', label: 'AV' },
+    { value: 'LAB', label: 'Lab' },
+    { value: 'FURNITURE', label: 'Furniture' },
+    { value: 'COMPUTING', label: 'Computing' },
+    { value: 'SAFETY', label: 'Safety' },
+    { value: 'OTHER', label: 'Other' }
   ];
 
   const daysOfWeek = [
@@ -96,7 +119,8 @@ const ResourceSettings = () => {
         distributionMap[equip.equipment_id] = equip.rooms.map(room => ({
           id: room.id,
           name: room.name,
-          quantity: room.quantity_in_room
+          quantity: room.quantity_in_room,
+          assigned_date: room.assigned_date
         }));
       });
       
@@ -113,6 +137,7 @@ const ResourceSettings = () => {
     if (item) {
       setEquipmentForm({
         name: item.name,
+        category: item.category || '',
         description: item.description || '',
         quantity: item.quantity,
         is_active: item.is_active
@@ -120,6 +145,7 @@ const ResourceSettings = () => {
     } else {
       setEquipmentForm({
         name: '',
+        category: '',
         description: '',
         quantity: 1,
         is_active: true
@@ -249,6 +275,68 @@ const ResourceSettings = () => {
     }));
   };
 
+  const filteredEquipment = useMemo(() => {
+    const searchTerm = equipmentFilters.search.trim().toLowerCase();
+    const dateFilter = equipmentFilters.date ? new Date(equipmentFilters.date) : null;
+
+    return equipment.filter(item => {
+      const matchesSearch = !searchTerm ||
+        item.name?.toLowerCase().includes(searchTerm) ||
+        item.description?.toLowerCase().includes(searchTerm) ||
+        item.category?.toLowerCase().includes(searchTerm);
+
+      const matchesCategory = !equipmentFilters.category || item.category === equipmentFilters.category;
+
+      let matchesAvailability = true;
+      if (equipmentFilters.availability) {
+        const availableQty = Number.isFinite(item.available_quantity)
+          ? item.available_quantity
+          : Math.max((item.quantity || 0) - (item.assigned_quantity || 0), 0);
+        matchesAvailability = equipmentFilters.availability === 'available'
+          ? availableQty > 0
+          : availableQty <= 0;
+      }
+
+      let matchesDate = true;
+      if (dateFilter) {
+        const assignments = equipmentDistribution[item.id] || [];
+        matchesDate = assignments.some(assignment => {
+          if (!assignment.assigned_date) return false;
+          const assignedDate = new Date(assignment.assigned_date);
+          return assignedDate.toDateString() === dateFilter.toDateString();
+        });
+      }
+
+      return matchesSearch && matchesCategory && matchesAvailability && matchesDate;
+    });
+  }, [equipment, equipmentDistribution, equipmentFilters]);
+
+  const filteredTimeSlots = useMemo(() => {
+    const searchTerm = timeSlotFilters.search.trim().toLowerCase();
+    const dateFilter = timeSlotFilters.date ? new Date(timeSlotFilters.date) : null;
+    const weekday = dateFilter ? dateFilter.getDay() : null;
+
+    return timeSlots.filter(slot => {
+      const matchesSearch = !searchTerm || slot.name?.toLowerCase().includes(searchTerm);
+      const matchesType = !timeSlotFilters.slot_type || slot.slot_type === timeSlotFilters.slot_type;
+
+      let matchesAvailability = true;
+      if (timeSlotFilters.availability) {
+        matchesAvailability = timeSlotFilters.availability === 'available'
+          ? slot.is_active
+          : !slot.is_active;
+      }
+
+      let matchesDate = true;
+      if (weekday !== null) {
+        const slotDays = Array.isArray(slot.days_of_week) ? slot.days_of_week : [];
+        matchesDate = slotDays.length === 0 || slotDays.includes(weekday);
+      }
+
+      return matchesSearch && matchesType && matchesAvailability && matchesDate;
+    });
+  }, [timeSlots, timeSlotFilters]);
+
   return (
     <div className="resource-settings">
       <div className="section-tabs">
@@ -290,11 +378,46 @@ const ResourceSettings = () => {
             </button>
           </div>
 
+          <div className="filters-row">
+            <input
+              type="text"
+              placeholder="Search equipment..."
+              value={equipmentFilters.search}
+              onChange={(e) => setEquipmentFilters(prev => ({ ...prev, search: e.target.value }))}
+              className="filter-input"
+            />
+            <input
+              type="date"
+              value={equipmentFilters.date}
+              onChange={(e) => setEquipmentFilters(prev => ({ ...prev, date: e.target.value }))}
+              className="filter-input"
+            />
+            <select
+              value={equipmentFilters.availability}
+              onChange={(e) => setEquipmentFilters(prev => ({ ...prev, availability: e.target.value }))}
+              className="filter-select"
+            >
+              <option value="">All Availability</option>
+              <option value="available">Available</option>
+              <option value="unavailable">Unavailable</option>
+            </select>
+            <select
+              value={equipmentFilters.category}
+              onChange={(e) => setEquipmentFilters(prev => ({ ...prev, category: e.target.value }))}
+              className="filter-select"
+            >
+              <option value="">All Equipment Types</option>
+              {[...new Set(equipment.map(item => item.category).filter(Boolean))].map(category => (
+                <option key={category} value={category}>{category}</option>
+              ))}
+            </select>
+          </div>
+
           {loading ? (
             <div className="loading">Loading...</div>
           ) : (
             <div className="items-grid">
-              {equipment.map(item => {
+              {filteredEquipment.map(item => {
                 const roomAssignments = equipmentDistribution[item.id] || [];
                 const hasAssignments = roomAssignments.length > 0;
                 
@@ -306,6 +429,9 @@ const ResourceSettings = () => {
                         {item.is_active ? 'Active' : 'Inactive'}
                       </span>
                     </div>
+                    <p className="item-description" style={{ marginBottom: '6px', fontWeight: 600 }}>
+                      Category: {item.category || 'Uncategorized'}
+                    </p>
                     <p className="item-description">{item.description || 'No description'}</p>
                     <div style={{ marginTop: '10px' }}>
                       <p><strong>Total Quantity:</strong> {item.quantity}</p>
@@ -366,11 +492,46 @@ const ResourceSettings = () => {
             </button>
           </div>
 
+          <div className="filters-row">
+            <input
+              type="text"
+              placeholder="Search time slots..."
+              value={timeSlotFilters.search}
+              onChange={(e) => setTimeSlotFilters(prev => ({ ...prev, search: e.target.value }))}
+              className="filter-input"
+            />
+            <input
+              type="date"
+              value={timeSlotFilters.date}
+              onChange={(e) => setTimeSlotFilters(prev => ({ ...prev, date: e.target.value }))}
+              className="filter-input"
+            />
+            <select
+              value={timeSlotFilters.availability}
+              onChange={(e) => setTimeSlotFilters(prev => ({ ...prev, availability: e.target.value }))}
+              className="filter-select"
+            >
+              <option value="">All Availability</option>
+              <option value="available">Available</option>
+              <option value="unavailable">Unavailable</option>
+            </select>
+            <select
+              value={timeSlotFilters.slot_type}
+              onChange={(e) => setTimeSlotFilters(prev => ({ ...prev, slot_type: e.target.value }))}
+              className="filter-select"
+            >
+              <option value="">All Types</option>
+              {slotTypes.map(type => (
+                <option key={type.value} value={type.value}>{type.label}</option>
+              ))}
+            </select>
+          </div>
+
           {loading ? (
             <div className="loading">Loading...</div>
           ) : (
             <div className="items-grid">
-              {timeSlots.map(slot => (
+              {filteredTimeSlots.map(slot => (
                 <div key={slot.id} className="item-card">
                   <div className="item-header">
                     <h4>{slot.name}</h4>
@@ -427,6 +588,21 @@ const ResourceSettings = () => {
                       required
                       className="form-input"
                     />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Category</label>
+                    <select
+                      value={equipmentForm.category}
+                      onChange={(e) => setEquipmentForm({ ...equipmentForm, category: e.target.value })}
+                      className="form-input"
+                    >
+                      {equipmentCategoryOptions.map(option => (
+                        <option key={option.value || 'uncategorized'} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   <div className="form-group">

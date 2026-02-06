@@ -5,9 +5,16 @@ import './FeatureLanding.css';
 
 const RoomsLanding = () => {
   const [rooms, setRooms] = useState([]);
+  const [equipment, setEquipment] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showForm, setShowForm] = useState(false);
+  const [filters, setFilters] = useState({
+    search: '',
+    availability: '',
+    date: '',
+    equipment_category: ''
+  });
   const [formData, setFormData] = useState({ 
     name: '', 
     building: '', 
@@ -20,13 +27,27 @@ const RoomsLanding = () => {
 
   useEffect(() => {
     console.log('RoomsLanding component mounted');
-    fetchRooms();
+    fetchEquipment();
   }, []);
+
+  useEffect(() => {
+    fetchRooms();
+  }, [filters]);
 
   const fetchRooms = async () => {
     console.log('Fetching rooms...');
     try {
-      const response = await api.get('/scheduling/rooms/');
+      const params = {};
+      if (filters.search) params.search = filters.search;
+      if (filters.equipment_category) params.equipment_category = filters.equipment_category;
+      if (filters.date) {
+        params.date = filters.date;
+        params.availability = filters.availability || 'available';
+      } else if (filters.availability) {
+        params.availability = filters.availability;
+      }
+
+      const response = await api.get('/scheduling/rooms/', { params });
       console.log('Rooms API response:', response.data);
       // Handle both paginated (object with results) and non-paginated (array) responses
       const roomsData = Array.isArray(response.data) ? response.data : (response.data.results || []);
@@ -42,6 +63,21 @@ const RoomsLanding = () => {
       setLoading(false);
       console.log('Loading complete');
     }
+  };
+
+  const fetchEquipment = async () => {
+    try {
+      const response = await api.get('/scheduling/equipment/', { params: { is_active: true } });
+      const equipmentData = Array.isArray(response.data) ? response.data : (response.data.results || []);
+      setEquipment(equipmentData);
+    } catch (err) {
+      console.error('Error fetching equipment:', err);
+    }
+  };
+
+  const handleFilterChange = (e) => {
+    const { name, value } = e.target;
+    setFilters(prev => ({ ...prev, [name]: value }));
   };
 
   const handleCreateRoom = async (e) => {
@@ -228,6 +264,45 @@ const RoomsLanding = () => {
           <div className="stat-number">{rooms.length}</div>
           <div className="stat-label">Total Rooms</div>
         </div>
+      </div>
+
+      <div className="filters-section">
+        <input
+          type="text"
+          name="search"
+          placeholder="Search rooms..."
+          value={filters.search}
+          onChange={handleFilterChange}
+          className="filter-input"
+        />
+        <input
+          type="date"
+          name="date"
+          value={filters.date}
+          onChange={handleFilterChange}
+          className="filter-input"
+        />
+        <select
+          name="availability"
+          value={filters.availability}
+          onChange={handleFilterChange}
+          className="filter-select"
+        >
+          <option value="">All Availability</option>
+          <option value="available">Available</option>
+          <option value="unavailable">Unavailable</option>
+        </select>
+        <select
+          name="equipment_category"
+          value={filters.equipment_category}
+          onChange={handleFilterChange}
+          className="filter-select"
+        >
+          <option value="">All Equipment Types</option>
+          {[...new Set(equipment.map(item => item.category).filter(Boolean))].map(category => (
+            <option key={category} value={category}>{category}</option>
+          ))}
+        </select>
       </div>
 
       <div className="rooms-grid">

@@ -3,6 +3,21 @@ import RoomManagement from '../RoomManagement/RoomManagement';
 import BookingManagement from '../BookingManagement/BookingManagement';
 import SchedulingCalendar from '../SchedulingCalendar/SchedulingCalendar';
 import ResourceSettings from '../ResourceSettings/ResourceSettings';
+import {
+  FiCalendar,
+  FiClipboard,
+  FiHome,
+  FiSettings,
+  FiClock,
+  FiCheckCircle,
+  FiRefreshCcw,
+  FiAlertTriangle,
+  FiBookmark,
+  FiMousePointer,
+  FiHelpCircle,
+  FiArrowRight,
+  FiBookOpen,
+} from 'react-icons/fi';
 import './AdminScheduling.css';
 
 const AdminScheduling = () => {
@@ -13,25 +28,25 @@ const AdminScheduling = () => {
     { 
       id: 'calendar', 
       label: 'Calendar View', 
-      icon: '📅',
+      icon: <FiCalendar />,
       description: 'View, create, and manage bookings with day/week/month calendar views. Drag-and-drop to reschedule bookings.'
     },
     { 
       id: 'bookings', 
       label: 'Bookings', 
-      icon: '📋',
+      icon: <FiClipboard />,
       description: 'Manage all bookings: create, modify, cancel, approve/reject. Handle recurring bookings and override conflicts.'
     },
     { 
       id: 'rooms', 
       label: 'Rooms', 
-      icon: '🏢',
+      icon: <FiHome />,
       description: 'Create, edit, and delete room/lab resources. Link equipment and manage room features.'
     },
     { 
       id: 'resources', 
       label: 'Equipment & Time Slots', 
-      icon: '⚙️',
+      icon: <FiSettings />,
       description: 'Configure equipment inventory and define time slot templates (hourly, daily, weekly).'
     }
   ];
@@ -40,16 +55,16 @@ const AdminScheduling = () => {
     {
       category: 'Scheduling & Resource Management',
       items: [
-        { icon: '🏢', title: 'Create, edit, and delete room/lab resources', tab: 'rooms', location: 'Rooms tab' },
-        { icon: '⚙️', title: 'Configure equipment linked to rooms', tab: 'resources', location: 'Equipment & Time Slots tab' },
-        { icon: '⏰', title: 'Manage time slot definitions (hourly, daily, weekly)', tab: 'resources', location: 'Equipment & Time Slots tab' },
-        { icon: '📋', title: 'Create, modify, and cancel any booking', tab: 'bookings', location: 'Bookings tab' },
-        { icon: '✅', title: 'Approve or reject booking requests', tab: 'bookings', location: 'Bookings tab - Filter by "Pending"' },
-        { icon: '🔄', title: 'Manage recurring bookings', tab: 'bookings', location: 'Bookings tab - Look for "is_recurring" filter' },
-        { icon: '⚠️', title: 'Override conflict detection rules when necessary', tab: 'bookings', location: 'Bookings tab - Click "Override Conflict" button' },
-        { icon: '📌', title: 'Manage waitlists and prioritize requests', tab: 'bookings', location: 'Bookings tab - Waitlist section' },
-        { icon: '📆', title: 'View all calendar views (day, week, month)', tab: 'calendar', location: 'Calendar View tab - Toggle view buttons' },
-        { icon: '🖱️', title: 'Use drag-and-drop scheduling for all resources', tab: 'calendar', location: 'Calendar View tab - Drag events to reschedule' }
+        { icon: <FiHome />, title: 'Create, edit, and delete room/lab resources', tab: 'rooms', location: 'Rooms tab' },
+        { icon: <FiSettings />, title: 'Configure equipment linked to rooms', tab: 'resources', location: 'Equipment & Time Slots tab' },
+        { icon: <FiClock />, title: 'Manage time slot definitions (hourly, daily, weekly)', tab: 'resources', location: 'Equipment & Time Slots tab' },
+        { icon: <FiClipboard />, title: 'Create, modify, and cancel any booking', tab: 'bookings', location: 'Bookings tab' },
+        { icon: <FiCheckCircle />, title: 'Approve or reject booking requests', tab: 'bookings', location: 'Bookings tab - Filter by "Pending"' },
+        { icon: <FiRefreshCcw />, title: 'Manage recurring bookings', tab: 'bookings', location: 'Bookings tab - Look for "is_recurring" filter' },
+        { icon: <FiAlertTriangle />, title: 'Override conflict detection rules when necessary', tab: 'bookings', location: 'Bookings tab - Click "Override Conflict" button' },
+        { icon: <FiBookmark />, title: 'Manage waitlists and prioritize requests', tab: 'bookings', location: 'Bookings tab - Waitlist section' },
+        { icon: <FiCalendar />, title: 'View all calendar views (day, week, month)', tab: 'calendar', location: 'Calendar View tab - Toggle view buttons' },
+        { icon: <FiMousePointer />, title: 'Use drag-and-drop scheduling for all resources', tab: 'calendar', location: 'Calendar View tab - Drag events to reschedule' }
       ]
     }
   ];
@@ -67,14 +82,14 @@ const AdminScheduling = () => {
             onClick={() => setShowGuide(!showGuide)}
             title="View feature guide"
           >
-            ❓ Guide
+            <FiHelpCircle /> Guide
           </button>
         </div>
 
         {showGuide && (
           <div className="feature-guide">
             <div className="guide-header">
-              <h3>📋 Feature Guide</h3>
+              <h3><FiBookOpen /> Feature Guide</h3>
               <button className="close-btn" onClick={() => setShowGuide(false)}>×</button>
             </div>
             <div className="guide-content">
@@ -98,7 +113,7 @@ const AdminScheduling = () => {
                             → Go to: <strong>{item.location}</strong>
                           </div>
                         </div>
-                        <span className="feature-arrow">→</span>
+                        <span className="feature-arrow"><FiArrowRight /></span>
                       </div>
                     ))}
                   </div>
