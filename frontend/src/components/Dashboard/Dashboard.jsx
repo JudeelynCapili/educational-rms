@@ -1,5 +1,4 @@
-import React, { useEffect, useState } from 'react';
-import api from '../../services/api';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { DashboardSkeleton } from '../Skeleton/Skeleton';
@@ -12,86 +11,17 @@ import QuickActions from './QuickActions';
 import AdminSchedulingStats from './AdminSchedulingStats';
 import MiniCalendar from './MiniCalendar';
 import { FiStar, FiArrowRight } from 'react-icons/fi';
+import useInactivityLogout from '../../hooks/useInactivityLogout';
+import useDashboardData from '../../hooks/useDashboardData';
+import ErrorMessage from '../Error/ErrorMessage';
 import './Dashboard.css';
 
 const Dashboard = () => {
-  const [dashboardData, setDashboardData] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
-  const [error, setError] = useState(null);
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
-
-  // Inactivity timeout setup (10 minutes)
-  const INACTIVITY_TIMEOUT = 10 * 60 * 1000; // 10 minutes in milliseconds
-  const inactivityTimerRef = React.useRef(null);
-
-  // Reset inactivity timer
-  const resetInactivityTimer = () => {
-    if (inactivityTimerRef.current) {
-      clearTimeout(inactivityTimerRef.current);
-    }
-
-    inactivityTimerRef.current = setTimeout(() => {
-      // Logout user after 10 minutes of inactivity
-      logout();
-      navigate('/login');
-    }, INACTIVITY_TIMEOUT);
-  };
-
-  // Setup activity listeners
-  useEffect(() => {
-    if (!user) return;
-
-    // Reset timer on any user activity
-    const handleActivity = () => {
-      resetInactivityTimer();
-    };
-
-    // Add event listeners for user activity
-    document.addEventListener('mousemove', handleActivity);
-    document.addEventListener('keypress', handleActivity);
-    document.addEventListener('click', handleActivity);
-    document.addEventListener('scroll', handleActivity);
-
-    // Initial timer
-    resetInactivityTimer();
-
-    return () => {
-      // Cleanup event listeners
-      document.removeEventListener('mousemove', handleActivity);
-      document.removeEventListener('keypress', handleActivity);
-      document.removeEventListener('click', handleActivity);
-      document.removeEventListener('scroll', handleActivity);
-      
-      // Clear timer
-      if (inactivityTimerRef.current) {
-        clearTimeout(inactivityTimerRef.current);
-      }
-    };
-  }, [user]);
-
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        const response = await api.get('/auth/dashboard/stats/');
-        setDashboardData(response.data);
-        setError(null);
-      } catch (err) {
-        setError('Failed to load dashboard data');
-        console.error('Dashboard error:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (!user) {
-      navigate('/login');
-      return;
-    }
-
-    fetchDashboardData();
-  }, [user, navigate]);
+  useInactivityLogout(logout, navigate);
+  const { dashboardData, loading, error, refreshDashboard } = useDashboardData(user, navigate);
 
   const handleLogout = () => {
     logout();
@@ -100,21 +30,7 @@ const Dashboard = () => {
 
   const handleProfileUpdate = async (updatedUser) => {
     // Refresh user data in the auth store
-    try {
-      const response = await api.get('/auth/users/me/');
-      // Update user in store if needed
-    } catch (err) {
-      console.error('Failed to refresh user data:', err);
-    }
-  };
-
-  const refreshDashboard = async () => {
-    try {
-      const response = await api.get('/auth/dashboard/stats/');
-      setDashboardData(response.data);
-    } catch (err) {
-      console.error('Failed to refresh dashboard:', err);
-    }
+    // ...existing code...
   };
 
   if (loading) {
@@ -124,19 +40,12 @@ const Dashboard = () => {
   if (!dashboardData) {
     return (
       <div className="dashboard">
-        <div className="error-message">
-          {error || 'An unexpected error occurred'}
-        </div>
+        <ErrorMessage message={error} />
       </div>
     );
   }
 
   const { user: userData, booking_stats, recent_bookings, simulation_stats, scheduling_stats } = dashboardData;
-
-  // Debug: Log user role
-  console.log('Dashboard userData:', userData);
-  console.log('Dashboard user role:', userData?.role);
-
   const isAdmin = userData.role === 'ADMIN' || userData.role === 'FACULTY';
 
   return (
@@ -159,7 +68,7 @@ const Dashboard = () => {
             </button>
           </div>
         )}
-        
+
         <DashboardCards 
           bookingStats={booking_stats} 
           simulationStats={simulation_stats} 
@@ -182,7 +91,7 @@ const Dashboard = () => {
           ) : (
             <RecentActivity bookings={recent_bookings} />
           )}
-          
+
           <QuickActions 
             onEditProfile={() => setIsEditProfileOpen(true)} 
             userRole={userData.role}

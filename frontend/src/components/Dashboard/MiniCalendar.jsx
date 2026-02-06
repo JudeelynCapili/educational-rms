@@ -1,29 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { getCalendarEvents } from '../../services/schedulingApi';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import './Dashboard.css';
+import EventTimeline from './MiniCalendar/EventTimeline';
+import DateDisplay from './MiniCalendar/DateDisplay';
+import useCalendarEvents from '../../hooks/booking/useCalendarEvents';
+import styles from './MiniCalendar.module.css';
 
 const MiniCalendar = () => {
   const navigate = useNavigate();
-  const [events, setEvents] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedDate, setSelectedDate] = useState(new Date());
-
-  useEffect(() => {
-    fetchTodayEvents();
-  }, []);
-
-  const fetchTodayEvents = async () => {
-    try {
-      const today = new Date().toISOString().split('T')[0];
-      const response = await getCalendarEvents('day', today);
-      setEvents(response.data);
-    } catch (error) {
-      console.error('Failed to fetch events:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [selectedDate] = useState(new Date());
+  const { events, loading } = useCalendarEvents(selectedDate);
 
   const getStatusColor = (status) => {
     const colors = {
@@ -37,61 +22,26 @@ const MiniCalendar = () => {
   };
 
   return (
-    <div className="mini-calendar-widget">
-      <div className="widget-header">
+    <div className={styles.miniCalendarWidget}>
+      <div className={styles.widgetHeader}>
         <h3>Today's Schedule</h3>
         <button 
-          className="view-full-btn"
+          className={styles.viewFullBtn}
           onClick={() => navigate('/admin-scheduling', { state: { tab: 'calendar' } })}
         >
           Full Calendar
         </button>
       </div>
 
-      <div className="today-date">
-        <div className="date-icon">📅</div>
-        <div className="date-info">
-          <p className="date-day">{selectedDate.toLocaleDateString('en-US', { weekday: 'long' })}</p>
-          <p className="date-full">{selectedDate.toLocaleDateString('en-US', { 
-            month: 'long', 
-            day: 'numeric', 
-            year: 'numeric' 
-          })}</p>
-        </div>
-      </div>
+      <DateDisplay selectedDate={selectedDate} styles={styles} />
 
       {loading ? (
-        <div className="calendar-loading">Loading events...</div>
+        <div className={styles.calendarLoading}>Loading events...</div>
       ) : events.length > 0 ? (
-        <div className="events-timeline">
-          {events.map((event) => (
-            <div key={event.id} className="timeline-event">
-              <div 
-                className="event-indicator"
-                style={{ backgroundColor: getStatusColor(event.status) }}
-              />
-              <div className="event-content">
-                <div className="event-time">{event.time}</div>
-                <div className="event-details">
-                  <p className="event-room">{event.room_name}</p>
-                  <p className="event-user">{event.user_name}</p>
-                </div>
-                <span 
-                  className="event-status-badge"
-                  style={{ 
-                    backgroundColor: getStatusColor(event.status),
-                    color: 'white'
-                  }}
-                >
-                  {event.status}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
+        <EventTimeline events={events} getStatusColor={getStatusColor} styles={styles} />
       ) : (
-        <div className="no-events">
-          <div className="no-events-icon">🎉</div>
+        <div className={styles.noEvents}>
+          <div className={styles.noEventsIcon}>🎉</div>
           <p>No bookings scheduled for today</p>
         </div>
       )}
