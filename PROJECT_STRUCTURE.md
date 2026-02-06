@@ -1,35 +1,101 @@
 # Project Structure & Development Guide
 
-## Directory Organization
+## Top-Level Layout
 
-### Frontend (`frontend/`)
+```
+educational-rms/
+├── backend/                     # Django API and business logic
+├── frontend/                    # React + Vite client
+├── README.md                    # Main documentation index
+├── QUICKSTART_GUIDE.md          # Fast setup for new devices
+├── SETUP_GUIDE.md               # Detailed setup guide
+├── ARCHITECTURE.md              # System diagrams and design notes
+├── BUILD_SUMMARY.md             # Feature status and roadmap
+├── WORKFLOW.md                  # Git workflow and commit conventions
+├── render.yaml                  # Backend deploy config
+├── vercel.json                  # Frontend deploy config
+├── start_backend.bat            # Windows backend helper
+└── test_*.py                    # Root-level integration tests
+```
+
+## Frontend (`frontend/`)
 ```
 frontend/
+├── public/
 ├── src/
+│   ├── assets/
 │   ├── components/
-│   │   └── Dashboard/           # Dashboard UI components
-│   │       ├── Dashboard.jsx    # Main dashboard component
-│   │       └── Dashboard.css    # Dashboard styling
+│   │   ├── Admin/
+│   │   ├── Bookings/
+│   │   ├── Dashboard/
+│   │   ├── Layout/
+│   │   ├── Profile/
+│   │   ├── Sidebar/
+│   │   ├── Simulation/
+│   │   └── Skeleton/
 │   ├── features/
 │   │   └── auth/
-│   │       └── components/      # Auth components (Login, Register)
-│   ├── pages/                   # Page components (for future use)
-│   ├── routes/
-│   │   ├── AppRoutes.jsx        # Main routing configuration
-│   │   ├── ProtectedRoute.jsx   # Protected route wrapper
-│   ├── services/
-│   │   ├── api.js               # Axios instance with interceptors
-│   │   └── authApi.js           # Auth-specific API calls
-│   ├── stores/
-│   │   └── authStore.js         # Zustand auth state management
 │   ├── hooks/
-│   │   └── useAuth.js           # Custom auth hook
-│   └── styles/                  # Global and component styles
+│   │   ├── useAuth.js
+│   │   └── useEquipmentConfig.js
+│   ├── pages/
+│   │   └── Features/
+│   ├── routes/
+│   │   ├── AppRoutes.jsx
+│   │   └── ProtectedRoute.jsx
+│   ├── services/
+│   │   ├── api.js
+│   │   ├── authApi.js
+│   │   ├── equipmentConfigService.js
+│   │   ├── schedulingApi.js
+│   │   └── simulationApi.js
+│   ├── stores/
+│   │   └── authStore.js
+│   ├── styles/
+│   │   ├── Login.css
+│   │   └── Register.css
+│   ├── App.jsx
+│   ├── App.tsx
+│   ├── main.jsx
+│   └── main.tsx
+├── eslint.config.js
+├── index.html
+├── package.json
+├── tsconfig.json
+└── vite.config.ts
 ```
 
-### Backend (`backend/`)
+## Backend (`backend/`)
 ```
 backend/
+├── api/
+│   └── v1/
+│       ├── routers.py           # API routers registration
+│       └── urls.py              # API v1 URL configuration
+├── apps/
+│   ├── analytics/
+│   ├── scheduling/
+│   │   ├── equipment_config.py
+│   │   ├── equipment_config_serializers.py
+│   │   ├── equipment_config_views.py
+│   │   ├── models.py
+│   │   ├── serializers.py
+│   │   ├── urls.py
+│   │   ├── views.py
+│   │   └── migrations/
+│   ├── simulation/
+│   │   ├── capacity_analysis.py
+│   │   ├── models.py
+│   │   ├── scenario_models.py
+│   │   ├── serializers.py
+│   │   ├── urls.py
+│   │   └── views.py
+│   └── users/
+│       ├── dashboard.py
+│       ├── models.py
+│       ├── serializers.py
+│       ├── urls.py
+│       └── views.py
 ├── config/
 │   ├── settings/
 │   │   ├── base.py              # Base Django settings
@@ -37,31 +103,6 @@ backend/
 │   │   └── production.py        # Production settings
 │   ├── urls.py                  # Main URL configuration
 │   └── wsgi.py                  # WSGI configuration
-├── apps/
-│   ├── users/
-│   │   ├── models.py            # User and UserProfile models
-│   │   ├── views.py             # User viewsets
-│   │   ├── serializers.py       # User serializers
-│   │   ├── urls.py              # User URLs including dashboard
-│   │   ├── dashboard.py         # Dashboard API endpoint
-│   │   ├── migrations/          # Database migrations
-│   │   └── admin.py             # Admin configurations
-│   ├── scheduling/
-│   │   ├── models.py            # Room, TimeSlot, Booking models
-│   │   ├── views.py             # Booking viewsets
-│   │   ├── serializers.py       # Booking serializers
-│   │   ├── urls.py              # Scheduling URLs
-│   │   ├── migrations/          # Database migrations
-│   └── simulation/
-│       ├── models.py            # SimulationScenario, SimulationResult models
-│       ├── views.py             # Simulation viewsets
-│       ├── serializers.py       # Simulation serializers
-│       ├── urls.py              # Simulation URLs
-│       └── migrations/          # Database migrations
-├── api/
-│   └── v1/
-│       ├── routers.py           # API routers registration
-│       └── urls.py              # API v1 URL configuration
 ├── manage.py                    # Django management script
 └── requirements.txt             # Python dependencies
 ```
@@ -274,12 +315,7 @@ VITE_API_URL=http://localhost:8000/api/v1
 
 ## Development Workflow
 
-1. Create a feature branch
-2. Make changes in frontend and/or backend
-3. Test locally using dev servers
-4. Verify API contracts with test requests
-5. Commit and push changes
-6. Create pull request with description
+See WORKFLOW.md for branching, commit, and pull request standards.
 
 ## Security Notes
 
