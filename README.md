@@ -3,7 +3,7 @@
 ## 📚 Documentation Index
 
 ### Getting Started
-1. **[QUICKSTART.md](QUICKSTART.md)** ⭐ START HERE
+1. **[QUICKSTART_GUIDE.md](QUICKSTART_GUIDE.md)** ⭐ START HERE
    - 5-minute quick setup
    - Essential commands
    - API testing examples
@@ -14,8 +14,13 @@
    - Frontend installation
    - Troubleshooting guide
 
+3. **[WORKFLOW.md](WORKFLOW.md)**
+  - Branching model
+  - Commit conventions
+  - Pull request flow
+
 ### Architecture & Design
-3. **[ARCHITECTURE.md](ARCHITECTURE.md)**
+4. **[ARCHITECTURE.md](ARCHITECTURE.md)**
    - Authentication flow diagrams
    - Data flow visualizations
    - Component architecture
@@ -23,7 +28,7 @@
    - Security features
 
 ### Project Status
-4. **[BUILD_SUMMARY.md](BUILD_SUMMARY.md)**
+5. **[BUILD_SUMMARY.md](BUILD_SUMMARY.md)**
    - What's been built
    - Project structure checklist
    - Feature status
@@ -322,7 +327,7 @@ curl -X GET http://localhost:8000/api/v1/auth/users/me/ \
 
 ## ✅ Checklist for Next Developer
 
-- [ ] Read QUICKSTART.md
+- [ ] Read QUICKSTART_GUIDE.md
 - [ ] Run backend setup
 - [ ] Run frontend setup
 - [ ] Test login/register flows
@@ -364,8 +369,8 @@ You now have:
 
 **Ready to build Phase 2 (Scheduling Module)?**
 
-Start with: [SETUP_GUIDE.md](SETUP_GUIDE.md) → [QUICKSTART.md](QUICKSTART.md) → [ARCHITECTURE.md](ARCHITECTURE.md)
+Start with: [SETUP_GUIDE.md](SETUP_GUIDE.md) → [QUICKSTART_GUIDE.md](QUICKSTART_GUIDE.md) → [ARCHITECTURE.md](ARCHITECTURE.md)
 
 ---
 
-Last Updated: January 29, 2026
+Last Updated: February 6, 2026
