@@ -10,10 +10,21 @@ const EquipmentLanding = () => {
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
+    category: '',
     description: '',
     quantity: '',
     is_active: true,
   });
+
+  const equipmentCategoryOptions = [
+    { value: '', label: 'Uncategorized' },
+    { value: 'AV', label: 'AV' },
+    { value: 'LAB', label: 'Lab' },
+    { value: 'FURNITURE', label: 'Furniture' },
+    { value: 'COMPUTING', label: 'Computing' },
+    { value: 'SAFETY', label: 'Safety' },
+    { value: 'OTHER', label: 'Other' }
+  ];
 
   useEffect(() => {
     fetchData();
@@ -45,7 +56,7 @@ const EquipmentLanding = () => {
     try {
       const response = await api.post('/scheduling/equipment/', formData);
       console.log('Equipment created:', response.data);
-      setFormData({ name: '', description: '', quantity: '', is_active: true });
+      setFormData({ name: '', category: '', description: '', quantity: '', is_active: true });
       setShowForm(false);
       setError(null);
       fetchData();
@@ -107,6 +118,19 @@ const EquipmentLanding = () => {
               />
             </div>
             <div className="form-group">
+              <label>Category</label>
+              <select
+                value={formData.category}
+                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+              >
+                {equipmentCategoryOptions.map(option => (
+                  <option key={option.value || 'uncategorized'} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group">
               <label>Quantity *</label>
               <input
                 type="number"
@@ -153,6 +177,7 @@ const EquipmentLanding = () => {
             <thead>
               <tr>
                 <th>Equipment Name</th>
+                <th>Category</th>
                 <th>Description</th>
                 <th>Quantity</th>
                 <th>Status</th>
@@ -163,6 +188,7 @@ const EquipmentLanding = () => {
               {equipment.map((item) => (
                 <tr key={item.id}>
                   <td>{item.name}</td>
+                  <td>{item.category || 'N/A'}</td>
                   <td>{item.description || 'N/A'}</td>
                   <td>{item.quantity}</td>
                   <td>

@@ -29,7 +29,7 @@
 }
 
 .section-tab.active {
-  background: #1976d2;
+  background: linear-gradient(135deg, #1e3a5f 0%, #3b82f6 100%);
   color: white;
 }
 
@@ -47,6 +47,28 @@
   margin-bottom: 20px;
   padding-bottom: 15px;
   border-bottom: 2px solid #e0e0e0;
+}
+
+.filters-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.filter-input,
+.filter-select {
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  min-width: 180px;
+  background: white;
+}
+
+.filter-input {
+  flex: 1;
+  min-width: 220px;
 }
 
 .section-header h3 {
@@ -186,11 +208,12 @@ textarea.form-input {
 .btn {
   padding: 10px 20px;
   border: none;
-  border-radius: 4px;
+  border-radius: 10px;
   cursor: pointer;
   font-size: 14px;
-  font-weight: 500;
-  transition: all 0.3s ease;
+  font-weight: 600;
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  font-family: 'Roboto', Arial, sans-serif;
 }
 
 .btn-sm {
@@ -199,30 +222,48 @@ textarea.form-input {
 }
 
 .btn-primary {
-  background: #1976d2;
+  background: linear-gradient(135deg, #1e3a5f 0%, #3b82f6 100%);
   color: white;
+  box-shadow: 0 2px 8px rgba(30, 58, 95, 0.3);
 }
 
 .btn-primary:hover {
-  background: #1565c0;
+  background: linear-gradient(135deg, #2d5287 0%, #2d5287 100%);
+  box-shadow: 0 4px 12px rgba(30, 58, 95, 0.4);
+  transform: translateY(-2px);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
 }
 
 .btn-secondary {
-  background: #757575;
-  color: white;
+  background: white;
+  color: #1e293b;
+  border: 2px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .btn-secondary:hover {
-  background: #616161;
+  background: #f0f4f8;
+  border-color: #3b82f6;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
 }
 
 .btn-danger {
-  background: #d32f2f;
+  background: #dc2626;
   color: white;
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3);
 }
 
 .btn-danger:hover {
-  background: #c62828;
+  background: #b91c1c;
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);
+  transform: translateY(-2px);
+}
+
+.btn-danger:active {
+  transform: translateY(0);
 }
 
 /* Modal */

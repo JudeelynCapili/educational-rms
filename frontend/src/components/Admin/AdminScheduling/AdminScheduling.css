@@ -1,14 +1,16 @@
 .admin-scheduling {
   width: 100%;
   min-height: 100vh;
-  background: #f5f5f5;
+  background: linear-gradient(135deg, #f0f4f8 0%, #e8ecf1 100%);
+  font-family: 'Roboto', Arial, sans-serif;
 }
 
 .scheduling-header {
   background: white;
   padding: 30px 40px;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 2px solid #e5e7eb;
   position: relative;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .header-content {
@@ -21,31 +23,49 @@
 .scheduling-header h1 {
   margin: 0 0 10px 0;
   font-size: 28px;
-  color: #333;
+  font-weight: 700;
+  color: #1e293b;
+  letter-spacing: -0.5px;
 }
 
 .subtitle {
   margin: 0;
-  color: #666;
+  color: #64748b;
   font-size: 14px;
+  font-weight: 400;
 }
 
 .guide-btn {
   padding: 10px 20px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #1e3a5f 0%, #3b82f6 100%);
   color: white;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
   font-size: 14px;
   font-weight: 600;
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: 'Roboto', Arial, sans-serif;
+  box-shadow: 0 2px 8px rgba(30, 58, 95, 0.3);
 }
 
-.guide-btn:hover {
+.guide-btn svg {
+  font-size: 1rem;
+}
+
+.guide-btn:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  background: linear-gradient(135deg, #2d5287 0%, #2d5287 100%);
+  box-shadow: 0 8px 20px rgba(30, 58, 95, 0.4);
+}
+
+.guide-btn:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 4px 12px rgba(30, 58, 95, 0.3);
 }
 
 /* Feature Guide Modal */
@@ -80,39 +100,44 @@
   justify-content: space-between;
   align-items: center;
   padding: 20px;
-  border-bottom: 2px solid #e0e0e0;
-  background: linear-gradient(135deg, #f8f9fa 0%, #f0f2f5 100%);
+  border-bottom: 2px solid #e5e7eb;
+  background: linear-gradient(135deg, #f0f4f8 0%, #e8ecf1 100%);
   border-radius: 12px 12px 0 0;
+  font-family: 'Roboto', Arial, sans-serif;
 }
 
 .guide-header h3 {
   margin: 0;
   font-size: 18px;
-  color: #333;
+  color: #1e293b;
 }
 
 .close-btn {
   background: none;
   border: none;
   font-size: 24px;
-  color: #666;
+  color: #64748b;
   cursor: pointer;
   line-height: 1;
-  transition: color 0.2s;
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  padding: 4px;
+  border-radius: 6px;
 }
 
 .close-btn:hover {
-  color: #333;
+  color: #1e293b;
+  background: rgba(59, 130, 246, 0.1);
 }
 
 .guide-content {
   padding: 20px;
+  font-family: 'Roboto', Arial, sans-serif;
 }
 
 .guide-section h4 {
   margin: 0 0 15px 0;
   font-size: 14px;
-  color: #667eea;
+  color: #3b82f6;
   text-transform: uppercase;
   font-weight: 600;
   letter-spacing: 0.5px;
@@ -129,22 +154,30 @@
   align-items: center;
   gap: 12px;
   padding: 12px;
-  background: #f8f9fa;
+  background: #f0f4f8;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.3s ease;
   border-left: 4px solid transparent;
+  font-family: 'Roboto', Arial, sans-serif;
 }
 
 .feature-item:hover {
-  background: #f0f2f5;
-  border-left-color: #667eea;
+  background: #e8ecf1;
+  border-left-color: #3b82f6;
   transform: translateX(4px);
 }
 
 .feature-icon {
   font-size: 1.5rem;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.feature-icon svg {
+  font-size: 1.5rem;
 }
 
 .feature-info {
@@ -154,17 +187,19 @@
 .feature-title {
   font-size: 13px;
   font-weight: 600;
-  color: #333;
+  color: #1e293b;
   margin-bottom: 4px;
+  font-family: 'Roboto', Arial, sans-serif;
 }
 
 .feature-location {
   font-size: 12px;
-  color: #666;
+  color: #64748b;
+  font-family: 'Roboto', Arial, sans-serif;
 }
 
 .feature-location strong {
-  color: #667eea;
+  color: #3b82f6;
   font-weight: 600;
 }
 
@@ -172,6 +207,13 @@
   color: #ccc;
   font-size: 1.2rem;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.feature-arrow svg {
+  font-size: 1.2rem;
 }
 
 /* Tab Navigation */
@@ -180,8 +222,9 @@
   gap: 0;
   background: white;
   padding: 0 40px;
-  border-bottom: 2px solid #e0e0e0;
+  border-bottom: 2px solid #e5e7eb;
   position: relative;
+  font-family: 'Roboto', Arial, sans-serif;
 }
 
 .tab-wrapper {
@@ -199,23 +242,32 @@
   cursor: pointer;
   font-size: 15px;
   font-weight: 500;
-  color: #666;
+  color: #64748b;
   transition: all 0.3s ease;
   margin-bottom: -2px;
+  font-family: 'Roboto', Arial, sans-serif;
 }
 
 .tab-btn:hover {
-  color: #333;
-  background: #f9f9f9;
+  color: #1e293b;
+  background: #f9fafb;
+  transform: translateY(-1px);
 }
 
 .tab-btn.active {
-  color: #1976d2;
-  border-bottom-color: #1976d2;
-  background: #f9f9f9;
+  color: #3b82f6;
+  border-bottom-color: #3b82f6;
+  background: #f9fafb;
 }
 
 .tab-icon {
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tab-icon svg {
   font-size: 20px;
 }
 
@@ -244,8 +296,9 @@
 }
 
 .tab-content {
-  background: #f5f5f5;
+  background: #f0f4f8;
   min-height: calc(100vh - 200px);
+  font-family: 'Roboto', Arial, sans-serif;
 }
 
 /* Responsive */
@@ -389,9 +442,10 @@
   justify-content: space-between;
   align-items: center;
   padding: 30px;
-  border-bottom: 2px solid #e0e0e0;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-bottom: 2px solid #e5e7eb;
+  background: linear-gradient(135deg, #1e3a5f 0%, #3b82f6 100%);
   border-radius: 16px 16px 0 0;
+  font-family: 'Roboto', Arial, sans-serif;
 }
 
 .modal-header h2 {
@@ -419,19 +473,20 @@
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 20px;
   padding: 30px;
+  font-family: 'Roboto', Arial, sans-serif;
 }
 
 .shortcut-card {
-  background: #f8f9fa;
+  background: #f0f4f8;
   padding: 20px;
   border-radius: 12px;
-  border-left: 4px solid #667eea;
+  border-left: 4px solid #3b82f6;
   transition: all 0.3s ease;
 }
 
 .shortcut-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 16px rgba(30, 58, 95, 0.15);
 }
 
 .shortcut-icon {
@@ -442,7 +497,8 @@
 .shortcut-card h3 {
   margin: 0 0 12px 0;
   font-size: 16px;
-  color: #333;
+  color: #1e293b;
+  font-family: 'Roboto', Arial, sans-serif;
 }
 
 .shortcut-card ul {
@@ -453,17 +509,18 @@
 
 .shortcut-card li {
   font-size: 13px;
-  color: #666;
+  color: #64748b;
   margin-bottom: 8px;
   padding-left: 16px;
   position: relative;
+  font-family: 'Roboto', Arial, sans-serif;
 }
 
 .shortcut-card li:before {
   content: '✓';
   position: absolute;
   left: 0;
-  color: #667eea;
+  color: #3b82f6;
   font-weight: bold;
 }
 
@@ -472,14 +529,15 @@
   justify-content: center;
   align-items: center;
   padding: 20px 30px;
-  border-top: 1px solid #e0e0e0;
-  background: #f8f9fa;
+  border-top: 1px solid #e5e7eb;
+  background: #f0f4f8;
   border-radius: 0 0 16px 16px;
+  font-family: 'Roboto', Arial, sans-serif;
 }
 
 .close-modal-btn {
   padding: 12px 30px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #1e3a5f 0%, #3b82f6 100%);
   color: white;
   border: none;
   border-radius: 8px;
@@ -487,9 +545,10 @@
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
+  font-family: 'Roboto', Arial, sans-serif;
 }
 
 .close-modal-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  box-shadow: 0 4px 12px rgba(30, 58, 95, 0.3);
 }

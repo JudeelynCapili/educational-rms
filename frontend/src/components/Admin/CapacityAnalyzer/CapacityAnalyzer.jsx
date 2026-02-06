@@ -1,5 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../../services/api';
+import {
+  FiBarChart2,
+  FiActivity,
+  FiTrendingUp,
+  FiSliders,
+  FiShuffle,
+} from 'react-icons/fi';
 import './CapacityAnalyzer.css';
 
 const CapacityAnalyzer = () => {
@@ -161,17 +168,28 @@ const CapacityAnalyzer = () => {
   return (
     <div className="capacity-container">
       <div className="capacity-header">
-        <h1>📊 Capacity & Utilization Analysis</h1>
+        <h1 className="capacity-title">
+          <FiBarChart2 className="capacity-title-icon" />
+          Capacity & Utilization Analysis
+        </h1>
         <p>Real-time monitoring, trends, scenario planning, and resource optimization</p>
       </div>
 
       <div className="tab-navigation">
         {['current', 'trends', 'scenarios', 'comparison'].map(tab => (
           <button key={tab} className={`tab-btn ${activeTab === tab ? 'active' : ''}`} onClick={() => setActiveTab(tab)}>
-            {tab === 'current' && '📈 Current'}
-            {tab === 'trends' && '📊 Trends'}
-            {tab === 'scenarios' && '⚙️ Scenarios'}
-            {tab === 'comparison' && '🔄 Compare'}
+            <span className="tab-icon">
+              {tab === 'current' && <FiActivity />}
+              {tab === 'trends' && <FiTrendingUp />}
+              {tab === 'scenarios' && <FiSliders />}
+              {tab === 'comparison' && <FiShuffle />}
+            </span>
+            <span className="tab-label">
+              {tab === 'current' && 'Current'}
+              {tab === 'trends' && 'Trends'}
+              {tab === 'scenarios' && 'Scenarios'}
+              {tab === 'comparison' && 'Compare'}
+            </span>
           </button>
         ))}
       </div>

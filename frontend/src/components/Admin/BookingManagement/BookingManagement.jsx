@@ -26,7 +26,7 @@ const BookingManagement = () => {
   const [alertModal, setAlertModal] = useState({ isOpen: false, title: '', message: '', type: 'info' });
   
   const [filters, setFilters] = useState({
-    status: 'PENDING',
+    status: '',
     room_id: '',
     start_date: '',
     end_date: '',
@@ -64,8 +64,32 @@ const BookingManagement = () => {
       if (filters.end_date) params.end_date = filters.end_date;
       if (filters.is_recurring) params.is_recurring = filters.is_recurring;
 
-      const data = await getBookings(params);
-      setBookings(Array.isArray(data) ? data : data.results || []);
+      // Fetch all pages to get all bookings
+      let allBookings = [];
+      let page = 1;
+      let hasMore = true;
+
+      while (hasMore) {
+        params.page = page;
+        const response = await getBookings(params);
+        
+        // Handle paginated response
+        if (response.results) {
+          allBookings = [...allBookings, ...response.results];
+          hasMore = response.next !== null;
+        } else if (Array.isArray(response)) {
+          // If response is already an array, just use it
+          allBookings = response;
+          hasMore = false;
+        } else {
+          allBookings = response;
+          hasMore = false;
+        }
+        
+        page++;
+      }
+
+      setBookings(allBookings);
       setError(null);
     } catch (err) {
       setError('Failed to fetch bookings');
@@ -329,6 +353,45 @@ const BookingManagement = () => {
           )}
         </div>
       </div>
+
+      {/* Booking Statistics Summary */}
+      {!loading && bookings.length > 0 && (
+        <div className="booking-stats">
+          <div className="stat-box">
+            <div className="stat-icon">📅</div>
+            <div className="stat-content">
+              <div className="stat-label">BOOKINGS</div>
+              <div className="stat-value">{bookings.length} total</div>
+            </div>
+          </div>
+          <div className="stat-breakdown">
+            <div className="breakdown-item pending">
+              <span className="breakdown-label">PENDING:</span>
+              <span className="breakdown-value">{bookings.filter(b => b.status === 'PENDING').length}</span>
+            </div>
+            <div className="breakdown-item approved">
+              <span className="breakdown-label">APPROVED:</span>
+              <span className="breakdown-value">{bookings.filter(b => b.status === 'APPROVED').length}</span>
+            </div>
+            <div className="breakdown-item confirmed">
+              <span className="breakdown-label">CONFIRMED:</span>
+              <span className="breakdown-value">{bookings.filter(b => b.status === 'CONFIRMED').length}</span>
+            </div>
+            <div className="breakdown-item completed">
+              <span className="breakdown-label">COMPLETED:</span>
+              <span className="breakdown-value">{bookings.filter(b => b.status === 'COMPLETED').length}</span>
+            </div>
+            <div className="breakdown-item cancelled">
+              <span className="breakdown-label">CANCELLED:</span>
+              <span className="breakdown-value">{bookings.filter(b => b.status === 'CANCELLED').length}</span>
+            </div>
+            <div className="breakdown-item rejected">
+              <span className="breakdown-label">REJECTED:</span>
+              <span className="breakdown-value">{bookings.filter(b => b.status === 'REJECTED').length}</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="alert alert-error">

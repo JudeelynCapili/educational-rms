@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useAuth from '../../../hooks/useAuth';
 import { LoginRegisterSkeleton } from '../../../components/Skeleton/Skeleton';
+import { FaUser, FaIdBadge, FaEnvelope, FaLock, FaBuilding, FaCalendarAlt, FaShieldAlt, FaMobileAlt } from 'react-icons/fa';
+import { motion } from 'framer-motion';
 import './Register.css';
 
 const Register = () => {
@@ -95,7 +97,7 @@ const Register = () => {
   }
 
   return (
-    <div className="auth-container">
+    <motion.div className="auth-container" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.6 }}>
       {/* Brand Side */}
       <div className="auth-brand-side">
         <div className="brand-content">
@@ -108,15 +110,15 @@ const Register = () => {
           </p>
           <div className="brand-features">
             <div className="brand-feature">
-              <div className="feature-icon">✨</div>
+              <FaCalendarAlt className="feature-icon" />
               <div className="feature-text">Easy account setup in minutes</div>
             </div>
             <div className="brand-feature">
-              <div className="feature-icon">🔒</div>
+              <FaShieldAlt className="feature-icon" />
               <div className="feature-text">Secure and encrypted data</div>
             </div>
             <div className="brand-feature">
-              <div className="feature-icon">📱</div>
+              <FaMobileAlt className="feature-icon" />
               <div className="feature-text">Access from any device</div>
             </div>
           </div>
@@ -125,7 +127,7 @@ const Register = () => {
 
       {/* Form Side */}
       <div className="auth-form-side">
-        <div className="auth-card">
+        <motion.div className="auth-card" initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.6 }}>
           <div className="auth-header">
             <h2 className="auth-title">Create Account</h2>
             <p className="auth-subtitle">Fill in the details to get started</p>
@@ -141,16 +143,19 @@ const Register = () => {
             <div className="form-row">
               <div className="form-group">
                 <label htmlFor="first_name" className="form-label form-label-required">First Name</label>
-                <input
-                  type="text"
-                  id="first_name"
-                  name="first_name"
-                  value={formData.first_name}
-                  onChange={handleChange}
-                  placeholder="John"
-                  className={`form-input ${validationErrors.first_name ? 'error' : ''}`}
-                  disabled={isLoading}
-                />
+                <div className="input-with-icon">
+                  <FaUser className="input-icon" />
+                  <input
+                    type="text"
+                    id="first_name"
+                    name="first_name"
+                    value={formData.first_name}
+                    onChange={handleChange}
+                    placeholder="John"
+                    className={`form-input ${validationErrors.first_name ? 'error' : ''}`}
+                    disabled={isLoading}
+                  />
+                </div>
                 {validationErrors.first_name && (
                   <span className="error-message">{validationErrors.first_name}</span>
                 )}
@@ -158,16 +163,19 @@ const Register = () => {
 
               <div className="form-group">
                 <label htmlFor="last_name" className="form-label form-label-required">Last Name</label>
-                <input
-                  type="text"
-                  id="last_name"
-                  name="last_name"
-                  value={formData.last_name}
-                  onChange={handleChange}
-                  placeholder="Doe"
-                  className={`form-input ${validationErrors.last_name ? 'error' : ''}`}
-                  disabled={isLoading}
-                />
+                <div className="input-with-icon">
+                  <FaUser className="input-icon" />
+                  <input
+                    type="text"
+                    id="last_name"
+                    name="last_name"
+                    value={formData.last_name}
+                    onChange={handleChange}
+                    placeholder="Doe"
+                    className={`form-input ${validationErrors.last_name ? 'error' : ''}`}
+                    disabled={isLoading}
+                  />
+                </div>
                 {validationErrors.last_name && (
                   <span className="error-message">{validationErrors.last_name}</span>
                 )}
@@ -176,16 +184,19 @@ const Register = () => {
 
             <div className="form-group">
               <label htmlFor="username" className="form-label form-label-required">Username</label>
-              <input
-                type="text"
-                id="username"
-                name="username"
-                value={formData.username}
-                onChange={handleChange}
-                placeholder="johndoe"
-                className={`form-input ${validationErrors.username ? 'error' : ''}`}
-                disabled={isLoading}
-              />
+              <div className="input-with-icon">
+                <FaIdBadge className="input-icon" />
+                <input
+                  type="text"
+                  id="username"
+                  name="username"
+                  value={formData.username}
+                  onChange={handleChange}
+                  placeholder="johndoe"
+                  className={`form-input ${validationErrors.username ? 'error' : ''}`}
+                  disabled={isLoading}
+                />
+              </div>
               {validationErrors.username && (
                 <span className="error-message">{validationErrors.username}</span>
               )}
@@ -193,16 +204,19 @@ const Register = () => {
 
             <div className="form-group">
               <label htmlFor="email" className="form-label form-label-required">Email Address</label>
-              <input
-                type="email"
-                id="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                placeholder="john.doe@university.edu"
-                className={`form-input ${validationErrors.email ? 'error' : ''}`}
-                disabled={isLoading}
-              />
+              <div className="input-with-icon">
+                <FaEnvelope className="input-icon" />
+                <input
+                  type="email"
+                  id="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  placeholder="john.doe@university.edu"
+                  className={`form-input ${validationErrors.email ? 'error' : ''}`}
+                  disabled={isLoading}
+                />
+              </div>
               {validationErrors.email && (
                 <span className="error-message">{validationErrors.email}</span>
               )}
@@ -211,16 +225,19 @@ const Register = () => {
             <div className="form-row">
               <div className="form-group">
                 <label htmlFor="password" className="form-label form-label-required">Password</label>
-                <input
-                  type="password"
-                  id="password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  placeholder="Min. 8 characters"
-                  className={`form-input ${validationErrors.password ? 'error' : ''}`}
-                  disabled={isLoading}
-                />
+                <div className="input-with-icon">
+                  <FaLock className="input-icon" />
+                  <input
+                    type="password"
+                    id="password"
+                    name="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    placeholder="Min. 8 characters"
+                    className={`form-input ${validationErrors.password ? 'error' : ''}`}
+                    disabled={isLoading}
+                  />
+                </div>
                 {validationErrors.password && (
                   <span className="error-message">{validationErrors.password}</span>
                 )}
@@ -228,16 +245,19 @@ const Register = () => {
 
               <div className="form-group">
                 <label htmlFor="password_confirm" className="form-label form-label-required">Confirm Password</label>
-                <input
-                  type="password"
-                  id="password_confirm"
-                  name="password_confirm"
-                  value={formData.password_confirm}
-                  onChange={handleChange}
-                  placeholder="Re-enter password"
-                  className={`form-input ${validationErrors.password_confirm ? 'error' : ''}`}
-                  disabled={isLoading}
-                />
+                <div className="input-with-icon">
+                  <FaLock className="input-icon" />
+                  <input
+                    type="password"
+                    id="password_confirm"
+                    name="password_confirm"
+                    value={formData.password_confirm}
+                    onChange={handleChange}
+                    placeholder="Re-enter password"
+                    className={`form-input ${validationErrors.password_confirm ? 'error' : ''}`}
+                    disabled={isLoading}
+                  />
+                </div>
                 {validationErrors.password_confirm && (
                   <span className="error-message">{validationErrors.password_confirm}</span>
                 )}
@@ -263,26 +283,31 @@ const Register = () => {
 
               <div className="form-group">
                 <label htmlFor="department" className="form-label">Department</label>
-                <input
-                  type="text"
-                  id="department"
-                  name="department"
-                  value={formData.department}
-                  onChange={handleChange}
-                  placeholder="Computer Science"
-                  className="form-input"
-                  disabled={isLoading}
-                />
+                <div className="input-with-icon">
+                  <FaBuilding className="input-icon" />
+                  <input
+                    type="text"
+                    id="department"
+                    name="department"
+                    value={formData.department}
+                    onChange={handleChange}
+                    placeholder="Computer Science"
+                    className="form-input"
+                    disabled={isLoading}
+                  />
+                </div>
               </div>
             </div>
 
-            <button
+            <motion.button
               type="submit"
               className="submit-btn"
               disabled={isLoading}
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.98 }}
             >
               {isLoading ? 'Creating Account...' : 'Create Account'}
-            </button>
+            </motion.button>
           </form>
 
           <div className="auth-footer">
@@ -293,9 +318,9 @@ const Register = () => {
               </a>
             </p>
           </div>
-        </div>
+        </motion.div>
       </div>
-    </div>
+    </motion.div>
   );
 };
 

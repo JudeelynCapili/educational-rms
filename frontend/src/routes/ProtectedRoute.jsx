@@ -2,18 +2,25 @@ import React, { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 
-const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated, initAuth } = useAuthStore();
+const ProtectedRoute = ({ children, requiredRole }) => {
+  const { isAuthenticated, initAuth, user } = useAuthStore();
   const [isInitialized, setIsInitialized] = useState(false);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     // Initialize auth and set initialized flag
     const initialize = async () => {
-      await initAuth();
-      setIsInitialized(true);
+      try {
+        await initAuth();
+      } catch (err) {
+        console.error('Auth initialization error:', err);
+        setError(err);
+      } finally {
+        setIsInitialized(true);
+      }
     };
     initialize();
-  }, [initAuth]);
+  }, []);
 
   // Show loading while initializing
   if (!isInitialized) {
@@ -53,6 +60,20 @@ const ProtectedRoute = ({ children }) => {
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+
+  // Check role if required
+  if (requiredRole) {
+    const userRole = user?.role?.toUpperCase() || '';
+    const allowedRoles = Array.isArray(requiredRole) 
+      ? requiredRole.map(r => r.toUpperCase())
+      : [requiredRole.toUpperCase()];
+    
+    if (!allowedRoles.includes(userRole)) {
+      return (
+        <Navigate to="/dashboard" replace />
+      );
+    }
   }
 
   return children;

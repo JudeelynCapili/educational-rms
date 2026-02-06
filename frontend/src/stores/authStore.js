@@ -17,6 +17,12 @@ export const useAuthStore = create((set) => ({
     const access = localStorage.getItem('access_token');
     const refresh = localStorage.getItem('refresh_token');
 
+    console.log('initAuth: Checking localStorage for tokens', {
+      hasAccess: !!access,
+      hasRefresh: !!refresh,
+      accessLength: access?.length,
+    });
+
     if (access && refresh) {
       set({
         tokens: { access, refresh },
@@ -24,9 +30,12 @@ export const useAuthStore = create((set) => ({
       });
 
       try {
+        console.log('initAuth: Calling getCurrentUser()...');
         const user = await authApi.getCurrentUser();
+        console.log('initAuth: Got user data:', user);
         set({ user });
       } catch (err) {
+        console.error('initAuth: Failed to get user, removing tokens:', err.response?.status, err.message);
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
         set({
@@ -35,6 +44,8 @@ export const useAuthStore = create((set) => ({
           user: null,
         });
       }
+    } else {
+      console.log('initAuth: No tokens in localStorage');
     }
   },
 

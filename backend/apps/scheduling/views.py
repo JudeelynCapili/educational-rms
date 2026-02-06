@@ -25,7 +25,7 @@ class EquipmentViewSet(viewsets.ModelViewSet):
     serializer_class = EquipmentSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['name', 'description']
+    search_fields = ['name', 'category', 'description']
     ordering_fields = ['name', 'quantity', 'created_at']
     ordering = ['name']
     
@@ -34,6 +34,20 @@ class EquipmentViewSet(viewsets.ModelViewSet):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
             return [IsAdminUser()]
         return [IsAuthenticated()]
+
+    def get_queryset(self):
+        """Filter equipment based on parameters."""
+        queryset = Equipment.objects.all()
+
+        category = self.request.query_params.get('category')
+        if category:
+            queryset = queryset.filter(category__iexact=category)
+
+        is_active = self.request.query_params.get('is_active')
+        if is_active is not None:
+            queryset = queryset.filter(is_active=is_active.lower() == 'true')
+
+        return queryset
 
 
 class RoomViewSet(viewsets.ModelViewSet):
@@ -79,14 +93,42 @@ class RoomViewSet(viewsets.ModelViewSet):
         equipment_id = self.request.query_params.get('equipment_id')
         if equipment_id:
             queryset = queryset.filter(room_equipment__equipment__id=equipment_id)
+
+        # Filter by equipment category
+        equipment_category = self.request.query_params.get('equipment_category')
+        if equipment_category:
+            queryset = queryset.filter(room_equipment__equipment__category__iexact=equipment_category)
+
+        # Filter by availability and/or date
+        date_str = self.request.query_params.get('date')
+        availability = self.request.query_params.get('availability')
+        if date_str:
+            try:
+                target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+            except ValueError:
+                raise ValidationError('Invalid date format. Use YYYY-MM-DD')
+
+            booked_room_ids = Booking.objects.filter(
+                date=target_date,
+                status__in=['APPROVED', 'CONFIRMED']
+            ).values_list('room_id', flat=True)
+
+            if availability:
+                availability_value = availability.lower()
+                if availability_value in ['true', 'available', 'yes', '1']:
+                    queryset = queryset.exclude(id__in=booked_room_ids)
+                elif availability_value in ['false', 'unavailable', 'no', '0']:
+                    queryset = queryset.filter(id__in=booked_room_ids)
+            else:
+                queryset = queryset.filter(id__in=booked_room_ids)
         
         # Optimize queries - prefetch room_equipment for list view
         if self.action == 'list':
             queryset = queryset.prefetch_related('room_equipment')
         else:
             queryset = queryset.prefetch_related('room_equipment__equipment')
-        
-        return queryset
+
+        return queryset.distinct()
     
     @action(detail=True, methods=['get'])
     def availability(self, request, pk=None):
@@ -197,6 +239,7 @@ class BookingViewSet(viewsets.ModelViewSet):
     """ViewSet for managing bookings."""
     queryset = Booking.objects.all()
     permission_classes = [IsAuthenticated]
+    pagination_class = None  # Disable pagination for bookings to show all results
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['purpose', 'room__name', 'user__email']
     ordering_fields = ['date', 'created_at', 'priority', 'status']
@@ -224,7 +267,7 @@ class BookingViewSet(viewsets.ModelViewSet):
         queryset = Booking.objects.select_related('room', 'user', 'time_slot', 'approved_by')
         
         # Admin sees all, others see only their bookings
-        if not user.role == 'ADMIN':
+        if not user.role.upper().upper() == 'ADMIN':
             queryset = queryset.filter(user=user)
         
         # Filter by status

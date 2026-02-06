@@ -7,6 +7,7 @@ from datetime import timedelta
 class Equipment(models.Model):
     """Equipment that can be linked to rooms"""
     name = models.CharField(max_length=100)
+    category = models.CharField(max_length=100, blank=True, default='')
     description = models.TextField(blank=True)
     quantity = models.IntegerField(default=1, help_text="Total available quantity")
     is_active = models.BooleanField(default=True)

@@ -27,6 +27,8 @@ export const authApi = {
 
   // Get current user details
   getCurrentUser: async () => {
+    const token = localStorage.getItem('access_token');
+    console.log('getCurrentUser: Token from localStorage:', token ? token.substring(0, 20) + '...' : 'NO TOKEN');
     const response = await api.get('/auth/users/me/');
     return response.data;
   },
