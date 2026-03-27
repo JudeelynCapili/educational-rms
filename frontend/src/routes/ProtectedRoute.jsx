@@ -1,29 +1,18 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 
 const ProtectedRoute = ({ children, requiredRole }) => {
-  const { isAuthenticated, initAuth, user } = useAuthStore();
-  const [isInitialized, setIsInitialized] = useState(false);
-  const [error, setError] = useState(null);
+  const { isAuthenticated, initAuth, user, hasInitialized, isInitializing } = useAuthStore();
 
   useEffect(() => {
-    // Initialize auth and set initialized flag
-    const initialize = async () => {
-      try {
-        await initAuth();
-      } catch (err) {
-        console.error('Auth initialization error:', err);
-        setError(err);
-      } finally {
-        setIsInitialized(true);
-      }
-    };
-    initialize();
-  }, []);
+    if (!hasInitialized && !isInitializing) {
+      initAuth();
+    }
+  }, [hasInitialized, isInitializing, initAuth]);
 
   // Show loading while initializing
-  if (!isInitialized) {
+  if (!hasInitialized || isInitializing) {
     return (
       <div style={{
         display: 'flex',

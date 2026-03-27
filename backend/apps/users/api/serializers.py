@@ -1,5 +1,4 @@
 from rest_framework import serializers
-from django.contrib.auth import authenticate
 from ..models import User, UserProfile
 
 
@@ -126,17 +125,17 @@ class UserLoginSerializer(serializers.Serializer):
     def validate(self, attrs):
         email = attrs.get('email')
         password = attrs.get('password')
-        
-        try:
-            user = User.objects.get(email=email)
-        except User.DoesNotExist:
+
+        user = User.objects.only(
+            'id', 'username', 'email', 'password', 'is_active'
+        ).filter(email=email).first()
+
+        if not user:
             raise serializers.ValidationError(
                 'Invalid email or password.'
             )
-        
-        user = authenticate(username=user.username, password=password)
-        
-        if not user:
+
+        if not user.check_password(password):
             raise serializers.ValidationError(
                 'Invalid email or password.'
             )

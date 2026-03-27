@@ -27,9 +27,8 @@ const AppRoutes = () => {
 
   // Initialize auth on component mount (only once)
   useEffect(() => {
-    console.log('AppRoutes: Mounting, calling initAuth');
     initAuth();
-  }, []);
+  }, [initAuth]);
 
   return (
     <Router>

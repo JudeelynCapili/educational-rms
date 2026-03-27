@@ -40,6 +40,20 @@ class UserViewSet(viewsets.ModelViewSet):
         elif self.action == 'change_password':
             return UserChangePasswordSerializer
         return self.serializer_class
+
+    @staticmethod
+    def _build_auth_user_payload(user):
+        """Lightweight user payload for auth endpoints."""
+        return {
+            'id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'role': user.role,
+            'department': user.department,
+            'is_active': user.is_active,
+        }
     
     @action(detail=False, methods=['post'], permission_classes=[AllowAny])
     def register(self, request):
@@ -76,7 +90,7 @@ class UserViewSet(viewsets.ModelViewSet):
             
             return Response({
                 'message': 'User registered successfully',
-                'user': UserSerializer(user).data,
+                'user': self._build_auth_user_payload(user),
                 'tokens': {
                     'access': str(refresh.access_token),
                     'refresh': str(refresh),
@@ -108,7 +122,7 @@ class UserViewSet(viewsets.ModelViewSet):
         
         return Response({
             'message': 'Login successful',
-            'user': UserSerializer(user).data,
+            'user': self._build_auth_user_payload(user),
             'tokens': {
                 'access': str(refresh.access_token),
                 'refresh': str(refresh),
@@ -129,9 +143,6 @@ class UserViewSet(viewsets.ModelViewSet):
     def me(self, request):
         """Get or update current authenticated user details."""
         try:
-            # Ensure user profile exists
-            UserProfile.objects.get_or_create(user=request.user)
-            
             if request.method in ['PUT', 'PATCH']:
                 serializer = self.get_serializer(
                     request.user,

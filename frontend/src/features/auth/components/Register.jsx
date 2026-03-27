@@ -1,14 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useAuth from '../../../hooks/useAuth';
-import { LoginRegisterSkeleton } from '../../../components/Skeleton/Skeleton';
 import { FaUser, FaIdBadge, FaEnvelope, FaLock, FaBuilding, FaCalendarAlt, FaShieldAlt, FaMobileAlt } from 'react-icons/fa';
 import { motion } from 'framer-motion';
 import '../styles/Register.css';
 
 const Register = () => {
   const navigate = useNavigate();
-  const { register, isLoading, error, clearError } = useAuth();
+  const { register, isLoading, error, clearError } = useAuth(false);
 
   const [formData, setFormData] = useState({
     username: '',
@@ -91,10 +90,6 @@ const Register = () => {
       // Error is handled by the auth store and displayed via the 'error' state
     }
   };
-
-  if (isLoading) {
-    return <LoginRegisterSkeleton />;
-  }
 
   return (
     <motion.div className="auth-container" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.6 }}>
