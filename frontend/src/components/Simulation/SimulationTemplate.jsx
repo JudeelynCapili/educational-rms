@@ -6,11 +6,13 @@ import {
   FiDownload,
   FiBarChart2,
   FiAlertTriangle,
+  FiClock,
 } from 'react-icons/fi';
 import '../Modeling/styles/ModelingModule.css';
 import './styles/SimulationTemplate.css';
 import {
   createSimulationScenario,
+  getSimulationHistory,
   getSimulationSystemSnapshot,
   runSimulationScenario,
 } from '../../services/simulationApi';
@@ -24,6 +26,8 @@ const SimulationTemplate = ({ title, description, simulationType }) => {
   const [playbackIndex, setPlaybackIndex] = useState(0);
   const [isPlaybackActive, setIsPlaybackActive] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [historyRuns, setHistoryRuns] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [simulationParams, setSimulationParams] = useState({
     lookbackDays: 120,
     simulationHours: 12,
@@ -40,7 +44,20 @@ const SimulationTemplate = ({ title, description, simulationType }) => {
 
   useEffect(() => {
     loadSystemSnapshot();
+    loadSimulationHistory();
   }, []);
+
+  const loadSimulationHistory = async () => {
+    setHistoryLoading(true);
+    try {
+      const runs = await getSimulationHistory(60);
+      setHistoryRuns(Array.isArray(runs) ? runs : []);
+    } catch (historyError) {
+      console.error('Failed to load simulation history:', historyError);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
 
   const loadSystemSnapshot = async () => {
     setIsLoading(true);
@@ -259,6 +276,7 @@ const SimulationTemplate = ({ title, description, simulationType }) => {
         timeline,
         roomLoad,
       });
+      loadSimulationHistory();
     } catch (error) {
       const msg = error?.response?.data?.error || 'Simulation run failed. Please review your parameters.';
       setError(msg);
@@ -290,9 +308,163 @@ const SimulationTemplate = ({ title, description, simulationType }) => {
     URL.revokeObjectURL(url);
   };
 
+  const exportHistoryRun = (run) => {
+    const payload = {
+      scenario: {
+        id: run.scenario,
+        name: run.scenario_name,
+        description: run.scenario_description,
+        created_at: run.scenario_created_at,
+        parameters: run.parameters,
+      },
+      run: {
+        id: run.id,
+        run_date: run.run_date,
+        metrics: run.metrics,
+        raw_data: run.raw_data,
+      },
+    };
+
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `simulation-run-${run.id}.json`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const loadHistoryRun = (run) => {
+    const result = {
+      id: run.id,
+      scenario: run.scenario,
+      run_date: run.run_date,
+      metrics: run.metrics || {},
+      raw_data: run.raw_data || {},
+    };
+
+    const timeline = buildTimelineRows(result);
+    const roomLoad = buildRoomVisualization(result.metrics || {}, run.parameters || {});
+
+    setSimData({
+      scenario: {
+        id: run.scenario,
+        name: run.scenario_name,
+        description: run.scenario_description,
+        created_at: run.scenario_created_at,
+        parameters: run.parameters || {},
+      },
+      result,
+      timeline,
+      roomLoad,
+    });
+  };
+
   const rooms = snapshot?.rooms || [];
   const equipment = snapshot?.equipment || [];
   const metrics = simData?.result?.metrics || {};
+
+  const actualVsSimulated = useMemo(() => {
+    const totalActualBookings = (snapshot?.booking_summary || []).reduce(
+      (sum, item) => sum + Number(item.total_bookings || 0),
+      0
+    );
+    const totalActualHours = (snapshot?.booking_summary || []).reduce(
+      (sum, item) => sum + Number(item.total_hours || 0),
+      0
+    );
+    const roomCount = Math.max(1, Number(snapshot?.rooms?.length || 1));
+    const lookbackDays = Math.max(1, Number(simulationParams.lookbackDays || 14));
+    const simHours = Math.max(1, Number(simulationParams.simulationHours || 8));
+    const observedHours = lookbackDays * simHours;
+
+    const actualThroughputPerHour = totalActualBookings / observedHours;
+    const simulatedThroughputPerHour = Number(metrics.served_count_avg || metrics.served_count || 0) / simHours;
+
+    const actualLoadPct = (totalActualHours / Math.max(1, roomCount * observedHours)) * 100;
+    const simulatedLoadPct = simData?.roomLoad?.length
+      ? simData.roomLoad.reduce((sum, room) => sum + Number(room.loadPct || 0), 0) / simData.roomLoad.length
+      : 0;
+
+    const actualServiceTime = totalActualBookings > 0 ? totalActualHours / totalActualBookings : 0;
+    const simulatedSystemTime = Number(metrics.avg_system_time || 0);
+
+    return {
+      actualThroughputPerHour,
+      simulatedThroughputPerHour,
+      throughputDeltaPct: actualThroughputPerHour > 0
+        ? ((simulatedThroughputPerHour - actualThroughputPerHour) / actualThroughputPerHour) * 100
+        : 0,
+      actualLoadPct,
+      simulatedLoadPct,
+      loadDeltaPct: actualLoadPct > 0
+        ? ((simulatedLoadPct - actualLoadPct) / actualLoadPct) * 100
+        : 0,
+      actualServiceTime,
+      simulatedSystemTime,
+      timeDeltaPct: actualServiceTime > 0
+        ? ((simulatedSystemTime - actualServiceTime) / actualServiceTime) * 100
+        : 0,
+    };
+  }, [snapshot, simulationParams.lookbackDays, simulationParams.simulationHours, metrics, simData]);
+
+  const equipmentSaturationLevels = useMemo(() => {
+    if (!snapshot?.equipment?.length) {
+      return [];
+    }
+
+    const lookbackDays = Math.max(1, Number(simulationParams.lookbackDays || 14));
+    const simHours = Math.max(1, Number(simulationParams.simulationHours || 8));
+    const summaryMap = new Map(
+      (snapshot?.booking_summary || []).map((item) => [item.room_id, item])
+    );
+    const roomLoadMap = new Map(
+      (simData?.roomLoad || []).map((item) => [item.roomId, item])
+    );
+
+    return (snapshot.equipment || []).map((eq) => {
+      const relatedRooms = (snapshot.rooms || []).filter((room) =>
+        (room.equipment || []).some((roomEq) => roomEq.id === eq.id)
+      );
+
+      const actualBookingsForEquipment = relatedRooms.reduce((sum, room) => {
+        const roomSummary = summaryMap.get(room.id);
+        return sum + Number(roomSummary?.total_bookings || 0);
+      }, 0);
+
+      const simulatedBookingsForEquipment = relatedRooms.reduce((sum, room) => {
+        const roomProjection = roomLoadMap.get(room.id);
+        return sum + Number(roomProjection?.projectedBookings || 0);
+      }, 0);
+
+      const units = Math.max(1, Number(eq.quantity || 1));
+      const actualHourlyDemand = actualBookingsForEquipment / Math.max(1, lookbackDays * simHours);
+      const simulatedHourlyDemand = simulatedBookingsForEquipment / simHours;
+
+      const actualSaturation = Math.min(200, (actualHourlyDemand / units) * 100);
+      const simulatedSaturation = Math.min(200, (simulatedHourlyDemand / units) * 100);
+
+      let status = 'Low';
+      if (simulatedSaturation >= 100) {
+        status = 'Critical';
+      } else if (simulatedSaturation >= 75) {
+        status = 'High';
+      } else if (simulatedSaturation >= 40) {
+        status = 'Moderate';
+      }
+
+      return {
+        id: eq.id,
+        name: eq.name,
+        units,
+        actualSaturation,
+        simulatedSaturation,
+        status,
+      };
+    }).sort((a, b) => b.simulatedSaturation - a.simulatedSaturation);
+  }, [snapshot, simData, simulationParams.lookbackDays, simulationParams.simulationHours]);
 
   useEffect(() => {
     if (!simData?.timeline?.length) {
@@ -587,6 +759,50 @@ const SimulationTemplate = ({ title, description, simulationType }) => {
         </div>
       </div>
 
+      <div className="card">
+        <div className="card-header">
+          <h2><FiClock /> Simulation History</h2>
+          <button className="btn-export" type="button" onClick={loadSimulationHistory} disabled={historyLoading}>
+            <FiRefreshCw /> {historyLoading ? 'Refreshing...' : 'Refresh History'}
+          </button>
+        </div>
+        {!historyRuns.length ? (
+          <p className="empty-state">No saved simulation runs yet. Run a simulation to build history.</p>
+        ) : (
+          <table className="timeline-table">
+            <thead>
+              <tr>
+                <th>Run Date</th>
+                <th>Scenario</th>
+                <th>Utilization</th>
+                <th>Avg Wait</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {historyRuns.map((run) => (
+                <tr key={run.id}>
+                  <td>{new Date(run.run_date).toLocaleString()}</td>
+                  <td>{run.scenario_name}</td>
+                  <td className="value">{Number((run.metrics?.server_utilization || 0) * 100).toFixed(1)}%</td>
+                  <td className="value">{Number(run.metrics?.avg_waiting_time || 0).toFixed(2)}h</td>
+                  <td>
+                    <div className="cartoon-controls">
+                      <button className="btn-export" type="button" onClick={() => loadHistoryRun(run)}>
+                        Load
+                      </button>
+                      <button className="btn-export" type="button" onClick={() => exportHistoryRun(run)}>
+                        <FiDownload /> Export
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
       {simData && (
         <div className="modeling-content">
           {/* Results Summary */}
@@ -607,6 +823,74 @@ const SimulationTemplate = ({ title, description, simulationType }) => {
               <div className="card-value">{pressuredRooms}</div>
               <div className="card-label">High-Load Rooms</div>
             </div>
+          </div>
+
+          <div className="card">
+            <div className="card-header">
+              <h2>Actual vs Simulated Results</h2>
+            </div>
+            <table className="timeline-table">
+              <thead>
+                <tr>
+                  <th>Metric</th>
+                  <th>Actual (Observed)</th>
+                  <th>Simulated</th>
+                  <th>Delta</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Throughput / hour</td>
+                  <td className="value">{actualVsSimulated.actualThroughputPerHour.toFixed(2)}</td>
+                  <td className="value">{actualVsSimulated.simulatedThroughputPerHour.toFixed(2)}</td>
+                  <td className="value">{actualVsSimulated.throughputDeltaPct.toFixed(1)}%</td>
+                </tr>
+                <tr>
+                  <td>System Load</td>
+                  <td className="value">{actualVsSimulated.actualLoadPct.toFixed(1)}%</td>
+                  <td className="value">{actualVsSimulated.simulatedLoadPct.toFixed(1)}%</td>
+                  <td className="value">{actualVsSimulated.loadDeltaPct.toFixed(1)}%</td>
+                </tr>
+                <tr>
+                  <td>Avg Processing/System Time</td>
+                  <td className="value">{actualVsSimulated.actualServiceTime.toFixed(2)}h</td>
+                  <td className="value">{actualVsSimulated.simulatedSystemTime.toFixed(2)}h</td>
+                  <td className="value">{actualVsSimulated.timeDeltaPct.toFixed(1)}%</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div className="card">
+            <div className="card-header">
+              <h2>Equipment Saturation Levels</h2>
+            </div>
+            {!equipmentSaturationLevels.length ? (
+              <p className="empty-state">No equipment data available for saturation analysis.</p>
+            ) : (
+              <table className="timeline-table">
+                <thead>
+                  <tr>
+                    <th>Equipment</th>
+                    <th>Units</th>
+                    <th>Actual Saturation</th>
+                    <th>Simulated Saturation</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {equipmentSaturationLevels.map((item) => (
+                    <tr key={item.id}>
+                      <td>{item.name}</td>
+                      <td className="value">{item.units}</td>
+                      <td className="value">{item.actualSaturation.toFixed(1)}%</td>
+                      <td className="value">{item.simulatedSaturation.toFixed(1)}%</td>
+                      <td className="value">{item.status}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
 
           {currentFrame && (
