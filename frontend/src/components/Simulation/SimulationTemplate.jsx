@@ -18,8 +18,22 @@ import {
 } from '../../services/simulationApi';
 
 const SimulationTemplate = ({ title, description, simulationType }) => {
+  const cacheKey = `sim-result-${simulationType}`;
+
+  const getInitialSimData = () => {
+    try {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        return JSON.parse(cached);
+      }
+    } catch (err) {
+      console.warn('Failed to load cached simulation:', err);
+    }
+    return null;
+  };
+
   const [snapshot, setSnapshot] = useState(null);
-  const [simData, setSimData] = useState(null);
+  const [simData, setSimData] = useState(getInitialSimData());
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
@@ -27,7 +41,9 @@ const SimulationTemplate = ({ title, description, simulationType }) => {
   const [isPlaybackActive, setIsPlaybackActive] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [historyRuns, setHistoryRuns] = useState([]);
+  const [historyPage, setHistoryPage] = useState(1);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [equipmentPage, setEquipmentPage] = useState(1);
   const [simulationParams, setSimulationParams] = useState({
     lookbackDays: 120,
     simulationHours: 12,
@@ -42,16 +58,28 @@ const SimulationTemplate = ({ title, description, simulationType }) => {
     selectedEquipmentId: '',
   });
 
+  const saveCachedSimulation = (data) => {
+    try {
+      localStorage.setItem(cacheKey, JSON.stringify(data));
+    } catch (err) {
+      console.warn('Failed to save simulation cache:', err);
+    }
+  };
+
   useEffect(() => {
     loadSystemSnapshot();
     loadSimulationHistory();
-  }, []);
+  }, [simulationType]);
 
   const loadSimulationHistory = async () => {
     setHistoryLoading(true);
     try {
-      const runs = await getSimulationHistory(60);
+      const runs = await getSimulationHistory(10, {
+        simulationType: simulationType,
+      });
       setHistoryRuns(Array.isArray(runs) ? runs : []);
+      setHistoryPage(1);
+      setEquipmentPage(1);
     } catch (historyError) {
       console.error('Failed to load simulation history:', historyError);
     } finally {
@@ -254,6 +282,7 @@ const SimulationTemplate = ({ title, description, simulationType }) => {
           seed: simulationParams.seed === '' ? null : Number(simulationParams.seed),
           room_id: simulationParams.selectedRoomId ? Number(simulationParams.selectedRoomId) : null,
           equipment_id: simulationParams.selectedEquipmentId ? Number(simulationParams.selectedEquipmentId) : null,
+          simulation_type: simulationType,
         },
       };
 
@@ -276,6 +305,7 @@ const SimulationTemplate = ({ title, description, simulationType }) => {
         timeline,
         roomLoad,
       });
+      setEquipmentPage(1);
       loadSimulationHistory();
     } catch (error) {
       const msg = error?.response?.data?.error || 'Simulation run failed. Please review your parameters.';
@@ -360,11 +390,19 @@ const SimulationTemplate = ({ title, description, simulationType }) => {
       timeline,
       roomLoad,
     });
+    setEquipmentPage(1);
   };
 
   const rooms = snapshot?.rooms || [];
   const equipment = snapshot?.equipment || [];
   const metrics = simData?.result?.metrics || {};
+  const HISTORY_PAGE_SIZE = 5;
+  const totalHistoryPages = Math.max(1, Math.ceil(historyRuns.length / HISTORY_PAGE_SIZE));
+  const currentHistoryPage = Math.min(historyPage, totalHistoryPages);
+  const paginatedHistoryRuns = historyRuns.slice(
+    (currentHistoryPage - 1) * HISTORY_PAGE_SIZE,
+    currentHistoryPage * HISTORY_PAGE_SIZE
+  );
 
   const actualVsSimulated = useMemo(() => {
     const totalActualBookings = (snapshot?.booking_summary || []).reduce(
@@ -466,12 +504,27 @@ const SimulationTemplate = ({ title, description, simulationType }) => {
     }).sort((a, b) => b.simulatedSaturation - a.simulatedSaturation);
   }, [snapshot, simData, simulationParams.lookbackDays, simulationParams.simulationHours]);
 
+  const EQUIPMENT_PAGE_SIZE = 5;
+  const totalEquipmentPages = Math.max(1, Math.ceil(equipmentSaturationLevels.length / EQUIPMENT_PAGE_SIZE));
+  const currentEquipmentPage = Math.min(equipmentPage, totalEquipmentPages);
+  const paginatedEquipmentLevels = equipmentSaturationLevels.slice(
+    (currentEquipmentPage - 1) * EQUIPMENT_PAGE_SIZE,
+    currentEquipmentPage * EQUIPMENT_PAGE_SIZE
+  );
+
+  useEffect(() => {
+    if (simData) {
+      saveCachedSimulation(simData);
+    }
+  }, [simData]);
+
   useEffect(() => {
     if (!simData?.timeline?.length) {
       return;
     }
     setPlaybackIndex(0);
     setIsPlaybackActive(true);
+    setEquipmentPage(1);
   }, [simData]);
 
   useEffect(() => {
@@ -769,37 +822,61 @@ const SimulationTemplate = ({ title, description, simulationType }) => {
         {!historyRuns.length ? (
           <p className="empty-state">No saved simulation runs yet. Run a simulation to build history.</p>
         ) : (
-          <table className="timeline-table">
-            <thead>
-              <tr>
-                <th>Run Date</th>
-                <th>Scenario</th>
-                <th>Utilization</th>
-                <th>Avg Wait</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {historyRuns.map((run) => (
-                <tr key={run.id}>
-                  <td>{new Date(run.run_date).toLocaleString()}</td>
-                  <td>{run.scenario_name}</td>
-                  <td className="value">{Number((run.metrics?.server_utilization || 0) * 100).toFixed(1)}%</td>
-                  <td className="value">{Number(run.metrics?.avg_waiting_time || 0).toFixed(2)}h</td>
-                  <td>
-                    <div className="cartoon-controls">
-                      <button className="btn-export" type="button" onClick={() => loadHistoryRun(run)}>
-                        Load
-                      </button>
-                      <button className="btn-export" type="button" onClick={() => exportHistoryRun(run)}>
-                        <FiDownload /> Export
-                      </button>
-                    </div>
-                  </td>
+          <>
+            <table className="timeline-table">
+              <thead>
+                <tr>
+                  <th>Run Date</th>
+                  <th>Scenario</th>
+                  <th>Utilization</th>
+                  <th>Avg Wait</th>
+                  <th>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {paginatedHistoryRuns.map((run) => (
+                  <tr key={run.id}>
+                    <td>{new Date(run.run_date).toLocaleString()}</td>
+                    <td>{run.scenario_name}</td>
+                    <td className="value">{Number((run.metrics?.server_utilization || 0) * 100).toFixed(1)}%</td>
+                    <td className="value">{Number(run.metrics?.avg_waiting_time || 0).toFixed(2)}h</td>
+                    <td>
+                      <div className="cartoon-controls">
+                        <button className="btn-export" type="button" onClick={() => loadHistoryRun(run)}>
+                          Load
+                        </button>
+                        <button className="btn-export" type="button" onClick={() => exportHistoryRun(run)}>
+                          <FiDownload /> Export
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <div className="timeline-toolbar" style={{ padding: '0 1rem 1rem' }}>
+              <span>
+                Page {currentHistoryPage} of {totalHistoryPages}
+              </span>
+              <button
+                className="btn-export"
+                type="button"
+                onClick={() => setHistoryPage((prev) => Math.max(1, prev - 1))}
+                disabled={currentHistoryPage <= 1}
+              >
+                Previous
+              </button>
+              <button
+                className="btn-export"
+                type="button"
+                onClick={() => setHistoryPage((prev) => Math.min(totalHistoryPages, prev + 1))}
+                disabled={currentHistoryPage >= totalHistoryPages}
+              >
+                Next
+              </button>
+            </div>
+          </>
         )}
       </div>
 
@@ -868,28 +945,51 @@ const SimulationTemplate = ({ title, description, simulationType }) => {
             {!equipmentSaturationLevels.length ? (
               <p className="empty-state">No equipment data available for saturation analysis.</p>
             ) : (
-              <table className="timeline-table">
-                <thead>
-                  <tr>
-                    <th>Equipment</th>
-                    <th>Units</th>
-                    <th>Actual Saturation</th>
-                    <th>Simulated Saturation</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {equipmentSaturationLevels.map((item) => (
-                    <tr key={item.id}>
-                      <td>{item.name}</td>
-                      <td className="value">{item.units}</td>
-                      <td className="value">{item.actualSaturation.toFixed(1)}%</td>
-                      <td className="value">{item.simulatedSaturation.toFixed(1)}%</td>
-                      <td className="value">{item.status}</td>
+              <>
+                <table className="timeline-table">
+                  <thead>
+                    <tr>
+                      <th>Equipment</th>
+                      <th>Units</th>
+                      <th>Actual Saturation</th>
+                      <th>Simulated Saturation</th>
+                      <th>Status</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {paginatedEquipmentLevels.map((item) => (
+                      <tr key={item.id}>
+                        <td>{item.name}</td>
+                        <td className="value">{item.units}</td>
+                        <td className="value">{item.actualSaturation.toFixed(1)}%</td>
+                        <td className="value">{item.simulatedSaturation.toFixed(1)}%</td>
+                        <td className="value">{item.status}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div className="timeline-toolbar" style={{ padding: '0 1rem 1rem' }}>
+                  <span>
+                    Page {currentEquipmentPage} of {totalEquipmentPages}
+                  </span>
+                  <button
+                    className="btn-export"
+                    type="button"
+                    onClick={() => setEquipmentPage((prev) => Math.max(1, prev - 1))}
+                    disabled={currentEquipmentPage <= 1}
+                  >
+                    Previous
+                  </button>
+                  <button
+                    className="btn-export"
+                    type="button"
+                    onClick={() => setEquipmentPage((prev) => Math.min(totalEquipmentPages, prev + 1))}
+                    disabled={currentEquipmentPage >= totalEquipmentPages}
+                  >
+                    Next
+                  </button>
+                </div>
+              </>
             )}
           </div>
 
