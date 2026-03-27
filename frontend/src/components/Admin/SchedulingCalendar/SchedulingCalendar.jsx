@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getCalendarEvents, getRooms, dragUpdateBooking } from '../../../services/schedulingApi';
-import './SchedulingCalendar.css';
+import './styles/SchedulingCalendar.css';
 
 const SchedulingCalendar = () => {
   const [events, setEvents] = useState([]);
@@ -473,3 +473,4 @@ const SchedulingCalendar = () => {
 };
 
 export default SchedulingCalendar;
+

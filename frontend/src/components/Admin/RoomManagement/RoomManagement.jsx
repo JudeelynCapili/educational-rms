@@ -6,7 +6,7 @@ import {
 import api from '../../../services/api';
 import ConfirmModal from '../../../components/Common/Modal/ConfirmModal';
 import AlertModal from '../../../components/Common/Modal/AlertModal';
-import './RoomManagement.css';
+import './styles/RoomManagement.css';
 
 const RoomManagement = () => {
   const [rooms, setRooms] = useState([]);

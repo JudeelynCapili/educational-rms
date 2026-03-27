@@ -1,5 +1,5 @@
 import React from 'react';
-import './Skeleton.css';
+import './styles/Skeleton.css';
 
 export const SkeletonLoader = ({ width = '100%', height = '20px', borderRadius = '8px', marginBottom = '1rem' }) => (
   <div
@@ -147,3 +147,4 @@ export const LoginRegisterSkeleton = () => (
     </div>
   </div>
 );
+

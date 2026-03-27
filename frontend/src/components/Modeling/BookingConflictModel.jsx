@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FiAlertTriangle, FiRefreshCw, FiDownload } from 'react-icons/fi';
-import './ModelingModule.css';
+import './styles/ModelingModule.css';
 import api from '../../services/api';
 
 const BookingConflictModel = () => {
@@ -153,3 +153,4 @@ const BookingConflictModel = () => {
 };
 
 export default BookingConflictModel;
+

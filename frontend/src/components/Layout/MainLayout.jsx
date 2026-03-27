@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import Sidebar from '../Sidebar/Sidebar';
-import './MainLayout.css';
+import './styles/MainLayout.css';
 
 const MainLayout = ({ children, userRole }) => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -20,3 +20,4 @@ const MainLayout = ({ children, userRole }) => {
 };
 
 export default MainLayout;
+

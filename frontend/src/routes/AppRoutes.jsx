@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from '../features/auth/components/Login';
 import Register from '../features/auth/components/Register';
-import Dashboard from '../components/Dashboard/Dashboard';
+import Dashboard from '../features/dashboard/Dashboard';
 import AdminScheduling from '../components/Admin/AdminScheduling/AdminScheduling';
 import CapacityAnalyzer from '../components/Admin/CapacityAnalyzer/CapacityAnalyzer';
 import BookingsVisualization from '../components/Bookings/BookingsVisualization';

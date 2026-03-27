@@ -7,8 +7,8 @@ import {
   FiBarChart2,
   FiAlertTriangle,
 } from 'react-icons/fi';
-import '../Modeling/ModelingModule.css';
-import './SimulationTemplate.css';
+import '../Modeling/styles/ModelingModule.css';
+import './styles/SimulationTemplate.css';
 import {
   createSimulationScenario,
   getSimulationSystemSnapshot,
@@ -660,3 +660,4 @@ const SimulationTemplate = ({ title, description, simulationType }) => {
 };
 
 export default SimulationTemplate;
+

@@ -7,7 +7,7 @@ import {
   FiSliders,
   FiShuffle,
 } from 'react-icons/fi';
-import './CapacityAnalyzer.css';
+import './styles/CapacityAnalyzer.css';
 
 const CapacityAnalyzer = () => {
   const [activeTab, setActiveTab] = useState('current');
@@ -508,3 +508,4 @@ const CapacityAnalyzer = () => {
 };
 
 export default CapacityAnalyzer;
+

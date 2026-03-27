@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FiBarChart2, FiRefreshCw, FiDownload } from 'react-icons/fi';
-import './ModelingModule.css';
+import './styles/ModelingModule.css';
 import api from '../../services/api';
 
 const ResourceUtilization = () => {
@@ -232,3 +232,4 @@ const ResourceUtilization = () => {
 };
 
 export default ResourceUtilization;
+

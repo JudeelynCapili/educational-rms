@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../../stores/authStore';
 import api from '../../services/api';
-import './EditProfileModal.css';
+import './styles/EditProfileModal.css';
 
 const EditProfileModal = ({ isOpen, onClose, onUpdate }) => {
   const { user } = useAuthStore();
@@ -257,3 +257,4 @@ const EditProfileModal = ({ isOpen, onClose, onUpdate }) => {
 };
 
 export default EditProfileModal;
+

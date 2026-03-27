@@ -4,7 +4,7 @@ import { getEquipment, createEquipment, updateEquipment, deleteEquipment } from 
 import { getTimeSlots, createTimeSlot, updateTimeSlot, deleteTimeSlot } from '../../../services/schedulingApi';
 import ConfirmModal from '../../../components/Common/Modal/ConfirmModal';
 import AlertModal from '../../../components/Common/Modal/AlertModal';
-import './ResourceSettings.css';
+import './styles/ResourceSettings.css';
 
 const API_BASE = 'http://localhost:8000/api/v1';
 

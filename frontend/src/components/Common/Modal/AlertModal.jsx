@@ -1,7 +1,7 @@
 import React from 'react';
 import { getTypeClass, getIcon } from './useModalUtils';
 import BaseModal from './BaseModal';
-import './Modal.css';
+import './styles/Modal.css';
 
 const AlertModal = ({ title, message, type = 'info', onClose, isOpen }) => {
   const typeClass = getTypeClass(type);
@@ -26,3 +26,4 @@ const AlertModal = ({ title, message, type = 'info', onClose, isOpen }) => {
 };
 
 export default AlertModal;
+

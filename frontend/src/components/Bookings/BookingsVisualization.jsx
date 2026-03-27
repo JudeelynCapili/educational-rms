@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FiCalendar, FiRefreshCw, FiDownload, FiAlertCircle, FiRepeat } from 'react-icons/fi';
 import { getBookings } from '../../services/schedulingApi';
-import './BookingsVisualization.css';
+import './styles/BookingsVisualization.css';
 
 const BookingsVisualization = () => {
   const [bookings, setBookings] = useState([]);
@@ -211,3 +211,4 @@ const BookingsVisualization = () => {
 };
 
 export default BookingsVisualization;
+
