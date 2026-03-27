@@ -14,9 +14,6 @@ api.interceptors.request.use((config) => {
   const token = localStorage.getItem('access_token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
-    console.log('Axios interceptor: Added Authorization header for URL:', config.url);
-  } else {
-    console.log('Axios interceptor: NO TOKEN found in localStorage for URL:', config.url);
   }
   return config;
 });

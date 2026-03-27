@@ -1,20 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../../stores/authStore';
 import { DashboardSkeleton } from '../../../components/Skeleton/Skeleton';
 import EditProfileModal from '../../../components/Profile/EditProfileModal';
 import DashboardHeader from './DashboardHeader';
 import WelcomeSection from './WelcomeSection';
-import DashboardCards from '../stats/DashboardCards';
-import RecentActivity from '../activity/RecentActivity';
-import QuickActions from '../actions/QuickActions';
-import AdminSchedulingStats from '../admin/AdminSchedulingStats';
-import MiniCalendar from '../calendar/MiniCalendar';
 import { FiStar, FiArrowRight } from 'react-icons/fi';
 import useInactivityLogout from '../../../hooks/useInactivityLogout';
 import useDashboardData from '../../../hooks/booking/useDashboardData';
 import ErrorMessage from '../../../components/Error/ErrorMessage';
 import './styles/Dashboard.css';
+
+const DashboardCards = lazy(() => import('../stats/DashboardCards'));
+const RecentActivity = lazy(() => import('../activity/RecentActivity'));
+const QuickActions = lazy(() => import('../actions/QuickActions'));
+const AdminSchedulingStats = lazy(() => import('../admin/AdminSchedulingStats'));
+const MiniCalendar = lazy(() => import('../calendar/MiniCalendar'));
 
 const Dashboard = () => {
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
@@ -69,35 +70,37 @@ const Dashboard = () => {
           </div>
         )}
 
-        <DashboardCards 
-          bookingStats={booking_stats} 
-          simulationStats={simulation_stats} 
-        />
-
-        {/* Admin Scheduling Stats - Only for admins/faculty */}
-        {isAdmin && scheduling_stats && (
-          <AdminSchedulingStats 
-            schedulingStats={scheduling_stats}
-            onBookingUpdate={refreshDashboard}
+        <Suspense fallback={<div className="loading">Loading dashboard sections...</div>}>
+          <DashboardCards
+            bookingStats={booking_stats}
+            simulationStats={simulation_stats}
           />
-        )}
 
-        <div className="content-sections">
-          {isAdmin ? (
-            <>
-              <MiniCalendar />
-              <RecentActivity bookings={recent_bookings} />
-            </>
-          ) : (
-            <RecentActivity bookings={recent_bookings} />
+          {/* Admin Scheduling Stats - Only for admins/faculty */}
+          {isAdmin && scheduling_stats && (
+            <AdminSchedulingStats
+              schedulingStats={scheduling_stats}
+              onBookingUpdate={refreshDashboard}
+            />
           )}
 
-          <QuickActions 
-            onEditProfile={() => setIsEditProfileOpen(true)} 
-            userRole={userData.role}
-            onBookingCreated={refreshDashboard}
-          />
-        </div>
+          <div className="content-sections">
+            {isAdmin ? (
+              <>
+                <MiniCalendar />
+                <RecentActivity bookings={recent_bookings} />
+              </>
+            ) : (
+              <RecentActivity bookings={recent_bookings} />
+            )}
+
+            <QuickActions
+              onEditProfile={() => setIsEditProfileOpen(true)}
+              userRole={userData.role}
+              onBookingCreated={refreshDashboard}
+            />
+          </div>
+        </Suspense>
       </div>
 
       <EditProfileModal 
