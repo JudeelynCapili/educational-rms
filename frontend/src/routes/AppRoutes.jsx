@@ -75,7 +75,7 @@ const AppRoutes = () => {
         <Route
           path="/bookings"
           element={
-            <ProtectedRoute requiredRole="ADMIN">
+            <ProtectedRoute requiredRole={["ADMIN", "FACULTY"]}>
               <MainLayout userRole={user?.role}>
                 <BookingsVisualization />
               </MainLayout>
@@ -87,7 +87,7 @@ const AppRoutes = () => {
         <Route
           path="/modeling/resource-utilization"
           element={
-            <ProtectedRoute requiredRole="ADMIN">
+            <ProtectedRoute requiredRole={["ADMIN", "FACULTY"]}>
               <MainLayout userRole={user?.role}>
                 <ResourceUtilization />
               </MainLayout>
@@ -98,7 +98,7 @@ const AppRoutes = () => {
         <Route
           path="/modeling/demand-forecasting"
           element={
-            <ProtectedRoute requiredRole="ADMIN">
+            <ProtectedRoute requiredRole={["ADMIN", "FACULTY"]}>
               <MainLayout userRole={user?.role}>
                 <DemandForecasting />
               </MainLayout>
@@ -109,7 +109,7 @@ const AppRoutes = () => {
         <Route
           path="/modeling/booking-conflict"
           element={
-            <ProtectedRoute requiredRole="ADMIN">
+            <ProtectedRoute requiredRole={["ADMIN", "FACULTY"]}>
               <MainLayout userRole={user?.role}>
                 <BookingConflictModel />
               </MainLayout>
@@ -120,7 +120,7 @@ const AppRoutes = () => {
         <Route
           path="/modeling/equipment-usage"
           element={
-            <ProtectedRoute requiredRole="ADMIN">
+            <ProtectedRoute requiredRole={["ADMIN", "FACULTY"]}>
               <MainLayout userRole={user?.role}>
                 <EquipmentUsageModel />
               </MainLayout>
@@ -132,7 +132,7 @@ const AppRoutes = () => {
         <Route
           path="/simulation/room-usage"
           element={
-            <ProtectedRoute requiredRole="ADMIN">
+            <ProtectedRoute requiredRole={["ADMIN", "FACULTY"]}>
               <MainLayout userRole={user?.role}>
                 <RoomUsageSimulation />
               </MainLayout>
@@ -143,7 +143,7 @@ const AppRoutes = () => {
         <Route
           path="/simulation/equipment-usage"
           element={
-            <ProtectedRoute requiredRole="ADMIN">
+            <ProtectedRoute requiredRole={["ADMIN", "FACULTY"]}>
               <MainLayout userRole={user?.role}>
                 <EquipmentUsageSimulation />
               </MainLayout>
@@ -154,7 +154,7 @@ const AppRoutes = () => {
         <Route
           path="/simulation/peak-hour"
           element={
-            <ProtectedRoute requiredRole="ADMIN">
+            <ProtectedRoute requiredRole={["ADMIN", "FACULTY"]}>
               <MainLayout userRole={user?.role}>
                 <PeakHourScenario />
               </MainLayout>
@@ -165,7 +165,7 @@ const AppRoutes = () => {
         <Route
           path="/simulation/shortage"
           element={
-            <ProtectedRoute requiredRole="ADMIN">
+            <ProtectedRoute requiredRole={["ADMIN", "FACULTY"]}>
               <MainLayout userRole={user?.role}>
                 <ShortageScenario />
               </MainLayout>
@@ -176,7 +176,7 @@ const AppRoutes = () => {
         <Route
           path="/simulation/what-if"
           element={
-            <ProtectedRoute requiredRole="ADMIN">
+            <ProtectedRoute requiredRole={["ADMIN", "FACULTY"]}>
               <MainLayout userRole={user?.role}>
                 <WhatIfAnalysis />
               </MainLayout>

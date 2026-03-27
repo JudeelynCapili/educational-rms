@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.db import models
 from django.db.models import Count, Q, Sum
+from django.core.cache import cache
 from datetime import datetime, timedelta
 import csv
 from io import StringIO
@@ -15,6 +16,7 @@ from .scenario_models import SavedScenario, CapacitySnapshot
 class CapacityAnalysisViewSet(viewsets.ViewSet):
     """ViewSet for capacity and utilization analysis."""
     permission_classes = [IsAuthenticated]
+    CACHE_TTL_SECONDS = 60
 
     @action(detail=False, methods=['get'])
     def current_utilization(self, request):
@@ -25,8 +27,13 @@ class CapacityAnalysisViewSet(viewsets.ViewSet):
         else:
             date = datetime.strptime(date_str, '%Y-%m-%d').date()
 
+        cache_key = f"capacity:current_utilization:{date.isoformat()}"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return Response(cached)
+
         # Optimize queries with select_related and prefetch_related
-        rooms = Room.objects.filter(is_active=True).only('id', 'name', 'capacity')
+        rooms = Room.objects.filter(is_active=True).only('id', 'name', 'capacity', 'room_type')
         time_slots_count = TimeSlot.objects.count()
         
         # Total available slot-hours
@@ -50,6 +57,7 @@ class CapacityAnalysisViewSet(viewsets.ViewSet):
             room_utilization.append({
                 'room_id': room.id,
                 'room_name': room.name,
+                'room_type': room.room_type,
                 'capacity': room.capacity,
                 'booked_slots': room_bookings,
                 'total_slots': time_slots_count,
@@ -81,14 +89,16 @@ class CapacityAnalysisViewSet(viewsets.ViewSet):
         
         overall_util = (booked_slots / total_slot_hours * 100) if total_slot_hours > 0 else 0
         
-        return Response({
+        payload = {
             'date': date,
             'overall_utilization_pct': round(overall_util, 1),
             'total_available_slots': total_slot_hours,
             'total_booked_slots': booked_slots,
             'room_utilization': room_utilization,
             'equipment_usage': equipment_usage,
-        })
+        }
+        cache.set(cache_key, payload, self.CACHE_TTL_SECONDS)
+        return Response(payload)
 
     @action(detail=False, methods=['post'])
     def scenario_analysis(self, request):
@@ -170,33 +180,47 @@ class CapacityAnalysisViewSet(viewsets.ViewSet):
         date_range_days = int(request.query_params.get('days', 7))
         start_date = datetime.today().date() - timedelta(days=date_range_days)
         end_date = datetime.today().date()
+
+        cache_key = f"capacity:peak_hours:{start_date.isoformat()}:{end_date.isoformat()}"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return Response(cached)
         
-        bookings = Booking.objects.filter(
+        booking_counts = Booking.objects.filter(
             date__gte=start_date,
             date__lte=end_date,
             status__in=['CONFIRMED', 'APPROVED']
-        ).select_related('time_slot')
-        
-        # Booking count by time slot
-        slot_usage = {}
-        for ts in TimeSlot.objects.all():
-            count = bookings.filter(time_slot=ts).count()
-            slot_usage[str(ts)] = count
+        ).values(
+            'time_slot_id',
+            'time_slot__name',
+            'time_slot__start_time',
+            'time_slot__end_time',
+        ).annotate(count=Count('id'))
+
+        slot_usage = {
+            f"{item['time_slot__name']}: {item['time_slot__start_time'].strftime('%H:%M')} - {item['time_slot__end_time'].strftime('%H:%M')}": item['count']
+            for item in booking_counts
+        }
+        for ts in TimeSlot.objects.all().only('id', 'name', 'start_time', 'end_time'):
+            label = f"{ts.name}: {ts.start_time.strftime('%H:%M')} - {ts.end_time.strftime('%H:%M')}"
+            slot_usage.setdefault(label, 0)
         
         sorted_slots = sorted(slot_usage.items(), key=lambda x: x[1], reverse=True)
         
         peak_slots = [{'time_slot': k, 'booking_count': v} for k, v in sorted_slots[:5]]
         underutilized = [{'time_slot': k, 'booking_count': v} for k, v in sorted_slots[-5:]]
         
-        return Response({
+        payload = {
             'date_range_days': date_range_days,
             'start_date': start_date,
             'end_date': end_date,
-            'total_bookings': bookings.count(),
+            'total_bookings': sum(slot_usage.values()),
             'peak_slots': peak_slots,
             'underutilized_slots': underutilized,
             'all_slots': slot_usage,
-        })
+        }
+        cache.set(cache_key, payload, self.CACHE_TTL_SECONDS)
+        return Response(payload)
 
     @action(detail=False, methods=['get'])
     def trend_analysis(self, request):
@@ -204,15 +228,27 @@ class CapacityAnalysisViewSet(viewsets.ViewSet):
         days = int(request.query_params.get('days', 30))
         start_date = datetime.today().date() - timedelta(days=days)
         end_date = datetime.today().date()
+
+        cache_key = f"capacity:trend_analysis:{start_date.isoformat()}:{end_date.isoformat()}"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return Response(cached)
         
         rooms = Room.objects.filter(is_active=True)
         time_slots = TimeSlot.objects.all()
         total_possible_slots = rooms.count() * time_slots.count()
         
+        bookings_by_date = Booking.objects.filter(
+            date__gte=start_date,
+            date__lte=end_date,
+            status__in=['CONFIRMED', 'APPROVED']
+        ).values('date').annotate(bookings=Count('id'))
+        booking_lookup = {item['date']: item['bookings'] for item in bookings_by_date}
+
         trend_data = []
         for date in (datetime.strptime(str(start_date), '%Y-%m-%d') + timedelta(days=x) for x in range(days)):
             current_date = date.date()
-            bookings = Booking.objects.filter(date=current_date, status__in=['CONFIRMED', 'APPROVED']).count()
+            bookings = booking_lookup.get(current_date, 0)
             util = (bookings / total_possible_slots * 100) if total_possible_slots > 0 else 0
             
             trend_data.append({
@@ -225,7 +261,7 @@ class CapacityAnalysisViewSet(viewsets.ViewSet):
         max_util = max(t['utilization_pct'] for t in trend_data) if trend_data else 0
         min_util = min(t['utilization_pct'] for t in trend_data) if trend_data else 0
         
-        return Response({
+        payload = {
             'days': days,
             'start_date': start_date,
             'end_date': end_date,
@@ -233,7 +269,109 @@ class CapacityAnalysisViewSet(viewsets.ViewSet):
             'avg_utilization': round(avg_util, 1),
             'max_utilization': round(max_util, 1),
             'min_utilization': round(min_util, 1),
-        })
+        }
+        cache.set(cache_key, payload, self.CACHE_TTL_SECONDS)
+        return Response(payload)
+
+    @action(detail=False, methods=['get'])
+    def conflict_summary(self, request):
+        """Fast conflict summary using DB-side grouping instead of full booking payloads."""
+        days = int(request.query_params.get('days', 120))
+        start_date = datetime.today().date() - timedelta(days=days)
+        end_date = datetime.today().date()
+
+        cache_key = f"capacity:conflict_summary:{start_date.isoformat()}:{end_date.isoformat()}"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return Response(cached)
+
+        active_statuses = ['PENDING', 'APPROVED', 'CONFIRMED']
+        base = Booking.objects.filter(
+            date__gte=start_date,
+            date__lte=end_date,
+            status__in=active_statuses,
+        )
+
+        grouped = list(
+            base.values(
+                'date',
+                'room_id',
+                'room__name',
+                'time_slot_id',
+                'time_slot__name',
+                'time_slot__start_time',
+                'time_slot__end_time',
+            ).annotate(count=Count('id'))
+        )
+
+        day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+        slots_per_day = {name: 0 for name in day_names}
+        conflicts_per_day = {name: 0 for name in day_names}
+        room_conflicts = {}
+        slot_conflicts = {}
+
+        for item in grouped:
+            day_name = item['date'].strftime('%A')
+            slots_per_day[day_name] = slots_per_day.get(day_name, 0) + 1
+
+            if item['count'] > 1:
+                conflicts_per_day[day_name] = conflicts_per_day.get(day_name, 0) + 1
+                room_name = item['room__name'] or f"Room {item['room_id']}"
+                room_conflicts[room_name] = room_conflicts.get(room_name, 0) + 1
+
+                slot_label = (
+                    f"{item['time_slot__name']}: "
+                    f"{item['time_slot__start_time'].strftime('%H:%M')} - "
+                    f"{item['time_slot__end_time'].strftime('%H:%M')}"
+                )
+                slot_conflicts[slot_label] = slot_conflicts.get(slot_label, 0) + 1
+
+        conflicts_by_day = []
+        for day in day_names:
+            slot_count = slots_per_day.get(day, 0)
+            conflict_count = conflicts_per_day.get(day, 0)
+            rate = (conflict_count / slot_count * 100) if slot_count else 0
+            if slot_count or conflict_count:
+                conflicts_by_day.append({
+                    'day': day,
+                    'conflicts': conflict_count,
+                    'slots': slot_count,
+                    'rate': round(rate, 1),
+                })
+
+        high_risk_slots = [
+            {
+                'slot': label,
+                'conflicts': count,
+                'probability': 'High' if count >= 8 else 'Medium' if count >= 4 else 'Low',
+            }
+            for label, count in sorted(slot_conflicts.items(), key=lambda x: x[1], reverse=True)[:8]
+        ]
+
+        total_conflicts = sum(conflicts_per_day.values())
+        total_active_bookings = base.count()
+        conflict_rate = round((total_conflicts / total_active_bookings * 100), 1) if total_active_bookings else 0.0
+        most_conflicted_resource = (
+            sorted(room_conflicts.items(), key=lambda x: x[1], reverse=True)[0][0]
+            if room_conflicts else 'N/A'
+        )
+
+        payload = {
+            'days': days,
+            'start_date': start_date,
+            'end_date': end_date,
+            'summary': {
+                'total_conflicts': total_conflicts,
+                'high_risk_slots': len([s for s in high_risk_slots if s['probability'] == 'High']),
+                'conflict_rate': f"{conflict_rate:.1f}%",
+                'most_conflicted_resource': most_conflicted_resource,
+            },
+            'conflicts_by_day': conflicts_by_day,
+            'time_slots': high_risk_slots,
+        }
+
+        cache.set(cache_key, payload, self.CACHE_TTL_SECONDS)
+        return Response(payload)
 
     @action(detail=False, methods=['post'])
     def save_scenario(self, request):

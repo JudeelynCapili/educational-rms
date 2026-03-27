@@ -1,44 +1,77 @@
 import React, { useState, useEffect } from 'react';
 import { FiBarChart2, FiRefreshCw, FiDownload } from 'react-icons/fi';
 import './ModelingModule.css';
+import api from '../../services/api';
 
 const ResourceUtilization = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [selectedResource, setSelectedResource] = useState('all');
+  const [selectedResource, setSelectedResource] = useState('rooms');
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().slice(0, 10));
 
   useEffect(() => {
     fetchUtilizationData();
-  }, [selectedResource]);
+  }, [selectedResource, selectedDate]);
 
   const fetchUtilizationData = async () => {
     setLoading(true);
     setError(null);
     try {
-      // TODO: Replace with actual API call
-      // const response = await fetch(`/api/v1/modeling/utilization?resource=${selectedResource}`);
-      // const result = await response.json();
-      // setData(result);
-      
-      // Mock data for now
+      const utilResponse = await api.get('/capacity/current_utilization/', { params: { date: selectedDate } });
+      const roomResources = (utilResponse.data.room_utilization || []).map((room) => {
+        const util = Number(room.utilization_pct || 0);
+        let status = 'optimal';
+        if (util < 40) {
+          status = 'underutilized';
+        } else if (util > 75) {
+          status = 'overutilized';
+        }
+        return {
+          id: `room-${room.room_id}`,
+          name: `${room.room_name} (${room.room_type || 'N/A'})`,
+          utilization: util,
+          status,
+          metaA: `${room.booked_slots} / ${room.total_slots} slots`,
+          metaB: `Cap ${room.capacity}`,
+        };
+      });
+
+      const equipmentResources = (utilResponse.data.equipment_usage || []).map((eq) => {
+        const util = Number(eq.assignment_pct || 0);
+        let status = 'optimal';
+        if (util < 40) {
+          status = 'underutilized';
+        } else if (util > 75) {
+          status = 'overutilized';
+        }
+        return {
+          id: `eq-${eq.equipment_id}`,
+          name: eq.equipment_name,
+          utilization: util,
+          status,
+          metaA: `${eq.assigned_quantity} assigned / ${eq.total_quantity}`,
+          metaB: `${eq.available_quantity} available`,
+        };
+      });
+
+      const resources = selectedResource === 'equipment' ? equipmentResources : roomResources;
+      const summary = {
+        totalResources: resources.length,
+        optimal: resources.filter((r) => r.status === 'optimal').length,
+        underutilized: resources.filter((r) => r.status === 'underutilized').length,
+        overutilized: resources.filter((r) => r.status === 'overutilized').length,
+      };
+
       setData({
-        summary: {
-          totalResources: 15,
-          optimal: 8,
-          underutilized: 5,
-          overutilized: 2
-        },
-        resources: [
-          { id: 1, name: 'Lab Room 1', utilization: 65, status: 'optimal' },
-          { id: 2, name: 'Lab Room 2', utilization: 35, status: 'underutilized' },
-          { id: 3, name: 'Computer Lab', utilization: 85, status: 'overutilized' },
-          { id: 4, name: 'Meeting Room A', utilization: 45, status: 'optimal' },
-          { id: 5, name: 'Meeting Room B', utilization: 25, status: 'underutilized' },
-        ]
+        summary,
+        resources,
+        overallUtilizationPct: Number(utilResponse.data?.overall_utilization_pct || 0),
+        totalBookedSlots: Number(utilResponse.data?.total_booked_slots || 0),
+        totalAvailableSlots: Number(utilResponse.data?.total_available_slots || 0),
       });
     } catch (err) {
-      setError(err.message);
+      setError(err?.response?.data?.error || 'Failed to load utilization data.');
     } finally {
       setLoading(false);
     }
@@ -67,6 +100,22 @@ const ResourceUtilization = () => {
         </button>
       </div>
 
+      <div className="card">
+        <div className="params-grid">
+          <div className="param-input">
+            <label>Data Type</label>
+            <select value={selectedResource} onChange={(e) => setSelectedResource(e.target.value)}>
+              <option value="rooms">Room Utilization</option>
+              <option value="equipment">Equipment Allocation</option>
+            </select>
+          </div>
+          <div className="param-input">
+            <label>Date</label>
+            <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />
+          </div>
+        </div>
+      </div>
+
       {error && (
         <div className="error-banner">
           <p>{error}</p>
@@ -75,6 +124,21 @@ const ResourceUtilization = () => {
 
       {data && (
         <div className="modeling-content">
+          {selectedResource === 'rooms' && data.totalBookedSlots === 0 && (
+            <div className="error-banner">
+              <p>
+                No approved or confirmed room bookings were found for {selectedDate}. Choose a different date or populate schedules for this day.
+              </p>
+            </div>
+          )}
+          {selectedResource === 'rooms' && data.totalBookedSlots > 0 && data.overallUtilizationPct >= 90 && (
+            <div className="card" style={{ marginBottom: '1rem' }}>
+              <p style={{ margin: 0, color: '#166534', fontWeight: 600 }}>
+                High utilization detected on {selectedDate}: {data.totalBookedSlots} of {data.totalAvailableSlots} room-slots booked ({data.overallUtilizationPct}%).
+              </p>
+            </div>
+          )}
+
           {/* Summary Cards */}
           <div className="summary-cards">
             <div className="card summary-card">
@@ -132,9 +196,15 @@ const ResourceUtilization = () => {
                           }}
                         />
                       </div>
+                      <small>{resource.metaA} • {resource.metaB}</small>
                     </td>
                   </tr>
                 ))}
+                {data.resources.length === 0 && (
+                  <tr>
+                    <td colSpan={4}>No utilization data available for the selected filters.</td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -143,9 +213,9 @@ const ResourceUtilization = () => {
           <div className="card info-card">
             <h3>Model Methodology</h3>
             <ul>
-              <li><strong>Available Time:</strong> Operating Hours × Days</li>
-              <li><strong>Used Time:</strong> Sum of all booking durations</li>
-              <li><strong>Utilization Rate:</strong> (Used Time / Available Time) × 100%</li>
+              <li><strong>Available Slots:</strong> Active Rooms × Active Time Slots (for selected date)</li>
+              <li><strong>Used Slots:</strong> Confirmed/Approved bookings on the selected date</li>
+              <li><strong>Utilization Rate:</strong> (Used Slots / Available Slots) × 100%</li>
               <li><strong>Classification:</strong>
                 <ul>
                   <li>Underutilized: &lt; 40%</li>
