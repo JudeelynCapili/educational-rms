@@ -1,14 +1,19 @@
 """Views for simulation app."""
 import math
 import random
+from datetime import datetime
 from collections import deque
 from django.db.models import Q
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from ..models import SimulationScenario, SimulationResult
-from .serializers import SimulationScenarioSerializer, SimulationResultSerializer
+from ..models import SimulationScenario, SimulationResult, SimulationAuditLog
+from .serializers import (
+    SimulationScenarioSerializer,
+    SimulationResultSerializer,
+    SimulationAuditLogSerializer,
+)
 from apps.scheduling.models import Room, Equipment, RoomEquipment, Booking
 
 
@@ -203,6 +208,21 @@ class SimulationViewSet(viewsets.ModelViewSet):
             'served_count': served_count
         }
 
+    def _log_audit(self, request, action, message, *, level='info', scenario=None, result=None, metadata=None):
+        try:
+            SimulationAuditLog.objects.create(
+                action=action,
+                level=level,
+                message=message,
+                metadata=metadata or {},
+                user=request.user if getattr(request, 'user', None) and request.user.is_authenticated else None,
+                scenario=scenario,
+                result=result,
+            )
+        except Exception:
+            # Audit logging failures must not break simulation flows.
+            pass
+
     def _estimate_mm_c(self, params):
         arrival_rate = params.get('arrival_rate')
         service_distribution = params.get('service_distribution', 'exponential')
@@ -311,21 +331,53 @@ class SimulationViewSet(viewsets.ModelViewSet):
         try:
             num_replications = int(num_replications)
         except (ValueError, TypeError):
+            self._log_audit(
+                request,
+                action='run_failed',
+                level='error',
+                scenario=scenario,
+                message='Simulation run rejected due to invalid num_replications',
+                metadata={'num_replications': request.data.get('num_replications')},
+            )
             return Response({'error': 'num_replications must be an integer'}, status=status.HTTP_400_BAD_REQUEST)
 
         if num_replications < 100:
             num_replications = 100
 
+        self._log_audit(
+            request,
+            action='run_started',
+            scenario=scenario,
+            message='Simulation run started',
+            metadata={'mode': run_mode, 'num_replications': num_replications},
+        )
+
         if run_mode == 'estimate':
             try:
                 aggregated = self._estimate_mm_c(params)
             except ValueError as exc:
+                self._log_audit(
+                    request,
+                    action='run_failed',
+                    level='error',
+                    scenario=scenario,
+                    message='Simulation estimate failed',
+                    metadata={'error': str(exc), 'mode': run_mode},
+                )
                 return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
             aggregated['num_replications'] = 0
             result = SimulationResult.objects.create(
                 scenario=scenario,
                 metrics=aggregated,
                 raw_data={'mode': 'estimate'}
+            )
+            self._log_audit(
+                request,
+                action='run_succeeded',
+                scenario=scenario,
+                result=result,
+                message='Simulation estimate completed successfully',
+                metadata={'mode': run_mode},
             )
             self._prune_history_for_category(params.get('simulation_type'))
             return Response(
@@ -345,6 +397,14 @@ class SimulationViewSet(viewsets.ModelViewSet):
             try:
                 metrics_list.append(self._simulate_replication(rep_params))
             except ValueError as exc:
+                self._log_audit(
+                    request,
+                    action='run_failed',
+                    level='error',
+                    scenario=scenario,
+                    message='Simulation run failed while computing replications',
+                    metadata={'error': str(exc), 'mode': run_mode},
+                )
                 return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
         # Aggregate metrics
@@ -365,6 +425,14 @@ class SimulationViewSet(viewsets.ModelViewSet):
             scenario=scenario,
             metrics=aggregated,
             raw_data={'replications': metrics_list[:100]}
+        )
+        self._log_audit(
+            request,
+            action='run_succeeded',
+            scenario=scenario,
+            result=result,
+            message='Simulation run completed successfully',
+            metadata={'mode': run_mode, 'num_replications': num_replications},
         )
         self._prune_history_for_category(params.get('simulation_type'))
         
@@ -417,3 +485,70 @@ class SimulationViewSet(viewsets.ModelViewSet):
             })
 
         return Response(payload)
+
+    @action(detail=False, methods=['get'])
+    def audit_logs(self, request):
+        """List recent simulation audit logs."""
+        limit = request.query_params.get('limit', 100)
+        try:
+            limit = int(limit)
+        except (TypeError, ValueError):
+            return Response({'error': 'limit must be an integer'}, status=status.HTTP_400_BAD_REQUEST)
+
+        limit = max(1, min(limit, 500))
+        queryset = SimulationAuditLog.objects.select_related('scenario', 'result').all()[:limit]
+        serializer = SimulationAuditLogSerializer(queryset, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def backup(self, request):
+        """Export simulation scenarios/results as a JSON backup payload."""
+        include_raw = str(request.query_params.get('include_raw', '0')).lower() in {'1', 'true', 'yes'}
+
+        scenarios = []
+        scenario_qs = SimulationScenario.objects.order_by('-created_at')
+        for scenario in scenario_qs:
+            scenarios.append({
+                'id': scenario.id,
+                'name': scenario.name,
+                'description': scenario.description,
+                'parameters': scenario.parameters,
+                'num_replications': scenario.num_replications,
+                'created_at': scenario.created_at,
+            })
+
+        results = []
+        result_qs = SimulationResult.objects.select_related('scenario').order_by('-run_date')
+        for result in result_qs:
+            payload = {
+                'id': result.id,
+                'scenario_id': result.scenario_id,
+                'scenario_name': result.scenario.name,
+                'run_date': result.run_date,
+                'metrics': result.metrics,
+            }
+            if include_raw:
+                payload['raw_data'] = result.raw_data
+            results.append(payload)
+
+        logs = SimulationAuditLog.objects.order_by('-created_at')[:200]
+        audit_logs = SimulationAuditLogSerializer(logs, many=True).data
+
+        self._log_audit(
+            request,
+            action='backup_exported',
+            message='Simulation backup exported',
+            metadata={
+                'include_raw': include_raw,
+                'scenario_count': len(scenarios),
+                'result_count': len(results),
+            },
+        )
+
+        return Response({
+            'exported_at': datetime.utcnow().isoformat() + 'Z',
+            'include_raw': include_raw,
+            'scenarios': scenarios,
+            'results': results,
+            'audit_logs': audit_logs,
+        })

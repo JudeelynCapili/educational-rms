@@ -12,6 +12,8 @@ import '../Modeling/styles/ModelingModule.css';
 import './styles/SimulationTemplate.css';
 import {
   createSimulationScenario,
+  getSimulationAuditLogs,
+  getSimulationBackup,
   getSimulationHistory,
   getSimulationSystemSnapshot,
   runSimulationScenario,
@@ -40,6 +42,10 @@ const SimulationTemplate = ({ title, description, simulationType }) => {
   const [playbackIndex, setPlaybackIndex] = useState(0);
   const [isPlaybackActive, setIsPlaybackActive] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [isAuditLoading, setIsAuditLoading] = useState(false);
+  const [isBackupLoading, setIsBackupLoading] = useState(false);
+  const [actionMessage, setActionMessage] = useState('');
   const [historyRuns, setHistoryRuns] = useState([]);
   const [historyPage, setHistoryPage] = useState(1);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -68,8 +74,43 @@ const SimulationTemplate = ({ title, description, simulationType }) => {
 
   useEffect(() => {
     loadSystemSnapshot();
+    loadAuditLogs();
     loadSimulationHistory();
   }, [simulationType]);
+
+  const toErrorMessage = (error, fallback) => {
+    const responseData = error?.response?.data;
+    if (!responseData) {
+      return error?.message || fallback;
+    }
+    if (typeof responseData === 'string') {
+      return responseData;
+    }
+    if (responseData.error) {
+      return responseData.error;
+    }
+    if (responseData.detail) {
+      return responseData.detail;
+    }
+    if (typeof responseData === 'object') {
+      return Object.entries(responseData)
+        .map(([field, msgs]) => `${field}: ${Array.isArray(msgs) ? msgs.join(', ') : msgs}`)
+        .join(' | ');
+    }
+    return fallback;
+  };
+
+  const loadAuditLogs = async () => {
+    setIsAuditLoading(true);
+    try {
+      const logs = await getSimulationAuditLogs(80);
+      setAuditLogs(Array.isArray(logs) ? logs : []);
+    } catch (auditError) {
+      setError(toErrorMessage(auditError, 'Failed to load audit logs.'));
+    } finally {
+      setIsAuditLoading(false);
+    }
+  };
 
   const loadSimulationHistory = async () => {
     setHistoryLoading(true);
@@ -132,8 +173,9 @@ const SimulationTemplate = ({ title, description, simulationType }) => {
         // Keep user/preset defaults stable; only refresh derived arrival rate from live data.
         arrivalRate: Number(estimatedArrival.toFixed(3)),
       }));
+      setActionMessage('System snapshot loaded successfully.');
     } catch (error) {
-      const msg = error?.response?.data?.error || 'Failed to load system snapshot.';
+      const msg = toErrorMessage(error, 'Failed to load system snapshot.');
       setError(msg);
       console.error('Error loading system snapshot:', error);
     } finally {
@@ -262,6 +304,7 @@ const SimulationTemplate = ({ title, description, simulationType }) => {
 
   const runSimulation = async () => {
     setError('');
+    setActionMessage('');
     setIsRunning(true);
 
     try {
@@ -305,10 +348,12 @@ const SimulationTemplate = ({ title, description, simulationType }) => {
         timeline,
         roomLoad,
       });
+      setActionMessage('Simulation completed successfully.');
+      loadAuditLogs();
       setEquipmentPage(1);
       loadSimulationHistory();
     } catch (error) {
-      const msg = error?.response?.data?.error || 'Simulation run failed. Please review your parameters.';
+      const msg = toErrorMessage(error, 'Simulation run failed. Please review your parameters.');
       setError(msg);
       console.error('Simulation run error:', error);
     } finally {
@@ -336,6 +381,30 @@ const SimulationTemplate = ({ title, description, simulationType }) => {
     anchor.click();
     anchor.remove();
     URL.revokeObjectURL(url);
+    setActionMessage('Current simulation results exported successfully.');
+  };
+
+  const downloadBackup = async (includeRaw = false) => {
+    setIsBackupLoading(true);
+    setError('');
+    try {
+      const backup = await getSimulationBackup(includeRaw);
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `simulation-backup-${Date.now()}.json`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+      setActionMessage(`Backup exported (${includeRaw ? 'with raw data' : 'summary only'}).`);
+      loadAuditLogs();
+    } catch (backupError) {
+      setError(toErrorMessage(backupError, 'Failed to export backup.'));
+    } finally {
+      setIsBackupLoading(false);
+    }
   };
 
   const exportHistoryRun = (run) => {
@@ -680,6 +749,7 @@ const SimulationTemplate = ({ title, description, simulationType }) => {
       </div>
 
       {error && <div className="error-banner">{error}</div>}
+      {actionMessage && <div className="card" style={{ padding: '0.75rem 1rem' }}>{actionMessage}</div>}
 
       {!rooms.length && !isLoading && (
         <div className="card simulation-warning">
@@ -877,6 +947,49 @@ const SimulationTemplate = ({ title, description, simulationType }) => {
               </button>
             </div>
           </>
+        )}
+      </div>
+
+      <div className="card">
+        <div className="card-header">
+          <h2>Audit Logs & Backup</h2>
+          <div className="cartoon-controls">
+            <button className="btn-export" type="button" onClick={loadAuditLogs} disabled={isAuditLoading}>
+              <FiRefreshCw /> {isAuditLoading ? 'Loading Logs...' : 'Refresh Logs'}
+            </button>
+            <button className="btn-export" type="button" onClick={() => downloadBackup(false)} disabled={isBackupLoading}>
+              <FiDownload /> {isBackupLoading ? 'Exporting...' : 'Backup (Summary)'}
+            </button>
+            <button className="btn-export" type="button" onClick={() => downloadBackup(true)} disabled={isBackupLoading}>
+              <FiDownload /> {isBackupLoading ? 'Exporting...' : 'Backup (Full)'}
+            </button>
+          </div>
+        </div>
+        {!auditLogs.length ? (
+          <p className="empty-state">No audit logs yet. Run a simulation or export backup to generate logs.</p>
+        ) : (
+          <table className="timeline-table">
+            <thead>
+              <tr>
+                <th>When</th>
+                <th>Action</th>
+                <th>Level</th>
+                <th>Scenario</th>
+                <th>Message</th>
+              </tr>
+            </thead>
+            <tbody>
+              {auditLogs.slice(0, 20).map((log) => (
+                <tr key={log.id}>
+                  <td>{new Date(log.created_at).toLocaleString()}</td>
+                  <td>{log.action}</td>
+                  <td className="value">{log.level}</td>
+                  <td>{log.scenario_name || '-'}</td>
+                  <td>{log.message}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
 
