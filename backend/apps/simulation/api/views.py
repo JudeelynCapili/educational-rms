@@ -3,6 +3,7 @@ import math
 import random
 from datetime import datetime
 from collections import deque
+from django.db.models import Q
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -23,6 +24,15 @@ class SimulationViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     filterset_fields = ['created_at']
     ordering_fields = ['created_at', 'name']
+
+    HISTORY_RETENTION_PER_CATEGORY = 10
+    HISTORY_TYPE_KEYWORDS = {
+        'room-usage': ['room usage simulation', 'room usage'],
+        'equipment-usage': ['equipment usage simulation', 'equipment usage'],
+        'peak-hour': ['peak-hour scenario simulation', 'peak-hour', 'peak hour'],
+        'what-if': ['what-if analysis', 'what-if', 'what if'],
+        'shortage': ['shortage scenario simulation', 'shortage scenario', 'shortage'],
+    }
     
     def get_queryset(self):
         """Get all simulations."""
@@ -269,6 +279,45 @@ class SimulationViewSet(viewsets.ModelViewSet):
         for i in range(2, n + 1):
             result *= i
         return result
+
+    def _category_filter(self, simulation_type, include_legacy=False):
+        if not simulation_type:
+            return Q()
+
+        typed_filter = Q(scenario__parameters__simulation_type=simulation_type)
+        if not include_legacy:
+            return typed_filter
+
+        keywords = self.HISTORY_TYPE_KEYWORDS.get(simulation_type, [])
+        if not keywords:
+            return typed_filter
+
+        keyword_filter = Q()
+        for keyword in keywords:
+            keyword_filter |= Q(scenario__name__icontains=keyword)
+            keyword_filter |= Q(scenario__description__icontains=keyword)
+
+        legacy_filter = (
+            Q(scenario__parameters__simulation_type__isnull=True)
+            | Q(scenario__parameters__simulation_type='')
+        )
+
+        return typed_filter | (legacy_filter & keyword_filter)
+
+    def _prune_history_for_category(self, simulation_type):
+        """Keep only the most recent N runs per simulation category."""
+        if not simulation_type:
+            return
+
+        category_runs = SimulationResult.objects.filter(
+            self._category_filter(simulation_type, include_legacy=True)
+        ).order_by('-run_date', '-id')
+
+        stale_run_ids = list(
+            category_runs.values_list('id', flat=True)[self.HISTORY_RETENTION_PER_CATEGORY:]
+        )
+        if stale_run_ids:
+            SimulationResult.objects.filter(id__in=stale_run_ids).delete()
     
     @action(detail=True, methods=['post'])
     def run(self, request, pk=None):
@@ -330,6 +379,7 @@ class SimulationViewSet(viewsets.ModelViewSet):
                 message='Simulation estimate completed successfully',
                 metadata={'mode': run_mode},
             )
+            self._prune_history_for_category(params.get('simulation_type'))
             return Response(
                 SimulationResultSerializer(result).data,
                 status=status.HTTP_201_CREATED
@@ -384,6 +434,7 @@ class SimulationViewSet(viewsets.ModelViewSet):
             message='Simulation run completed successfully',
             metadata={'mode': run_mode, 'num_replications': num_replications},
         )
+        self._prune_history_for_category(params.get('simulation_type'))
         
         return Response(
             SimulationResultSerializer(result).data,
@@ -402,13 +453,20 @@ class SimulationViewSet(viewsets.ModelViewSet):
     def history(self, request):
         """Get recent simulation runs across scenarios."""
         limit = request.query_params.get('limit', 50)
+        simulation_type = request.query_params.get('simulation_type')
         try:
             limit = int(limit)
         except (TypeError, ValueError):
             return Response({'error': 'limit must be an integer'}, status=status.HTTP_400_BAD_REQUEST)
 
         limit = max(1, min(limit, 200))
-        runs = SimulationResult.objects.select_related('scenario').order_by('-run_date')[:limit]
+        if simulation_type:
+            self._prune_history_for_category(simulation_type)
+
+        runs = SimulationResult.objects.select_related('scenario')
+        if simulation_type:
+            runs = runs.filter(self._category_filter(simulation_type, include_legacy=True))
+        runs = runs.order_by('-run_date', '-id')[:limit]
 
         payload = []
         for run in runs:
