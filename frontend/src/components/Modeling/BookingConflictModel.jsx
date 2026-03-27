@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { FiAlertTriangle, FiRefreshCw, FiDownload } from 'react-icons/fi';
 import './ModelingModule.css';
+import api from '../../services/api';
 
 const BookingConflictModel = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     fetchConflictData();
@@ -12,31 +14,23 @@ const BookingConflictModel = () => {
 
   const fetchConflictData = async () => {
     setLoading(true);
+    setError(null);
     try {
-      // TODO: Replace with actual API call
+      const response = await api.get('/capacity/conflict_summary/', { params: { days: 120 } });
+      const payload = response.data || {};
+
       setData({
         summary: {
-          totalConflicts: 23,
-          highRiskSlots: 8,
-          conflictRate: '3.2%',
-          mostConflictedResource: 'Computer Lab'
+          totalConflicts: Number(payload.summary?.total_conflicts || 0),
+          highRiskSlots: Number(payload.summary?.high_risk_slots || 0),
+          conflictRate: payload.summary?.conflict_rate || '0.0%',
+          mostConflictedResource: payload.summary?.most_conflicted_resource || 'N/A',
         },
-        conflictsByDay: [
-          { day: 'Monday', conflicts: 4, slots: 48, rate: 8.3 },
-          { day: 'Tuesday', conflicts: 3, slots: 48, rate: 6.3 },
-          { day: 'Wednesday', conflicts: 5, slots: 48, rate: 10.4 },
-          { day: 'Thursday', conflicts: 6, slots: 48, rate: 12.5 },
-          { day: 'Friday', conflicts: 5, slots: 48, rate: 10.4 },
-        ],
-        timeSlots: [
-          { slot: '9:00 - 10:00', conflicts: 3, probability: 'High' },
-          { slot: '10:00 - 11:00', conflicts: 4, probability: 'High' },
-          { slot: '12:00 - 13:00', conflicts: 2, probability: 'Medium' },
-          { slot: '14:00 - 15:00', conflicts: 5, probability: 'High' },
-          { slot: '15:00 - 16:00', conflicts: 4, probability: 'High' },
-          { slot: '16:00 - 17:00', conflicts: 2, probability: 'Medium' },
-        ]
+        conflictsByDay: payload.conflicts_by_day || [],
+        timeSlots: payload.time_slots || [],
       });
+    } catch (err) {
+      setError(err?.response?.data?.error || 'Failed to load booking conflict data.');
     } finally {
       setLoading(false);
     }
@@ -55,6 +49,12 @@ const BookingConflictModel = () => {
           <FiRefreshCw /> {loading ? 'Loading...' : 'Refresh'}
         </button>
       </div>
+
+      {error && (
+        <div className="error-banner">
+          <p>{error}</p>
+        </div>
+      )}
 
       {data && (
         <div className="modeling-content">

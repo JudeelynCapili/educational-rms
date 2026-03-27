@@ -1,4 +1,5 @@
 """Views for simulation app."""
+import math
 import random
 from collections import deque
 from rest_framework import viewsets, status
@@ -58,27 +59,27 @@ class SimulationViewSet(viewsets.ModelViewSet):
         ]
 
         booking_summary = {}
-        if start_date and end_date:
-            bookings = Booking.objects.filter(
-                date__gte=start_date,
-                date__lte=end_date
-            ).select_related('room', 'time_slot')
+        bookings = Booking.objects.select_related('room', 'time_slot')
+        if start_date:
+            bookings = bookings.filter(date__gte=start_date)
+        if end_date:
+            bookings = bookings.filter(date__lte=end_date)
 
-            for booking in bookings:
-                duration = (
-                    (booking.time_slot.end_time.hour + booking.time_slot.end_time.minute / 60)
-                    - (booking.time_slot.start_time.hour + booking.time_slot.start_time.minute / 60)
-                )
-                room_id = booking.room_id
-                if room_id not in booking_summary:
-                    booking_summary[room_id] = {
-                        'room_id': room_id,
-                        'room_name': booking.room.name,
-                        'total_bookings': 0,
-                        'total_hours': 0.0,
-                    }
-                booking_summary[room_id]['total_bookings'] += 1
-                booking_summary[room_id]['total_hours'] += max(duration, 0.0)
+        for booking in bookings:
+            duration = (
+                (booking.time_slot.end_time.hour + booking.time_slot.end_time.minute / 60)
+                - (booking.time_slot.start_time.hour + booking.time_slot.start_time.minute / 60)
+            )
+            room_id = booking.room_id
+            if room_id not in booking_summary:
+                booking_summary[room_id] = {
+                    'room_id': room_id,
+                    'room_name': booking.room.name,
+                    'total_bookings': 0,
+                    'total_hours': 0.0,
+                }
+            booking_summary[room_id]['total_bookings'] += 1
+            booking_summary[room_id]['total_hours'] += max(duration, 0.0)
 
         return Response({
             'rooms': room_payload,
@@ -102,10 +103,10 @@ class SimulationViewSet(viewsets.ModelViewSet):
     def _simulate_replication(self, params):
         arrival_rate = params.get('arrival_rate')
         service_distribution = params.get('service_distribution', 'exponential')
-        service_rate = params.get('service_rate')
+        service_rate = params.get('service_rate', 1.0)
         service_time = params.get('service_time')
-        num_servers = int(params.get('num_servers', 1))
-        simulation_hours = float(params.get('simulation_hours', 8))
+        num_servers = int(params.get('num_servers') or 1)
+        simulation_hours = float(params.get('simulation_hours') or 8)
         prng = params.get('prng', 'mt19937')
         seed = params.get('seed')
 
@@ -125,7 +126,9 @@ class SimulationViewSet(viewsets.ModelViewSet):
         max_time = simulation_hours
 
         next_arrival = rng.expovariate(arrival_rate)
-        server_end_times = [0.0] * num_servers
+        # Tracks only currently busy servers. Idle servers are implied by
+        # num_servers - len(busy_end_times) and prevent zero-time departure loops.
+        busy_end_times = []
         queue = deque()
 
         total_wait = 0.0
@@ -137,7 +140,7 @@ class SimulationViewSet(viewsets.ModelViewSet):
         area_queue = 0.0
 
         while t < max_time:
-            next_departure = min(server_end_times)
+            next_departure = min(busy_end_times) if busy_end_times else math.inf
             next_event = min(next_arrival, next_departure)
 
             # Advance time and accumulate queue length
@@ -151,14 +154,13 @@ class SimulationViewSet(viewsets.ModelViewSet):
 
             if next_arrival <= next_departure:
                 # Arrival
-                if any(end_time <= t for end_time in server_end_times):
-                    server_index = min(range(num_servers), key=lambda i: server_end_times[i])
+                if len(busy_end_times) < num_servers:
                     service_duration = self._service_time(rng, service_distribution, service_rate, service_time)
                     total_wait += 0.0
                     total_system += service_duration
                     total_service += service_duration
                     served_count += 1
-                    server_end_times[server_index] = t + service_duration
+                    busy_end_times.append(t + service_duration)
                 else:
                     queue.append(t)
                     max_queue_length = max(max_queue_length, len(queue))
@@ -166,7 +168,7 @@ class SimulationViewSet(viewsets.ModelViewSet):
                 next_arrival = t + rng.expovariate(arrival_rate)
             else:
                 # Departure
-                server_index = min(range(num_servers), key=lambda i: server_end_times[i])
+                busy_end_times.remove(next_departure)
                 if queue:
                     arrival_time = queue.popleft()
                     wait_time = t - arrival_time
@@ -175,9 +177,7 @@ class SimulationViewSet(viewsets.ModelViewSet):
                     total_system += wait_time + service_duration
                     total_service += service_duration
                     served_count += 1
-                    server_end_times[server_index] = t + service_duration
-                else:
-                    server_end_times[server_index] = t
+                    busy_end_times.append(t + service_duration)
 
         avg_queue_length = area_queue / max_time if max_time > 0 else 0.0
         avg_waiting_time = total_wait / served_count if served_count > 0 else 0.0
@@ -288,7 +288,10 @@ class SimulationViewSet(viewsets.ModelViewSet):
             rep_params = dict(params)
             # Different seed per replication if provided
             if rep_params.get('seed') is not None:
-                rep_params['seed'] = int(rep_params['seed']) + rep
+                try:
+                    rep_params['seed'] = int(rep_params['seed']) + rep
+                except (ValueError, TypeError):
+                    rep_params['seed'] = None
             try:
                 metrics_list.append(self._simulate_replication(rep_params))
             except ValueError as exc:

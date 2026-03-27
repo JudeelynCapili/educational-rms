@@ -1,14 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import {
   getRooms, createRoom, updateRoom, deleteRoom,
   getEquipment
 } from '../../../services/schedulingApi';
+import api from '../../../services/api';
 import ConfirmModal from '../../../components/Common/Modal/ConfirmModal';
 import AlertModal from '../../../components/Common/Modal/AlertModal';
 import './RoomManagement.css';
-
-const API_BASE = 'http://localhost:8000/api/v1';
 
 const RoomManagement = () => {
   const [rooms, setRooms] = useState([]);
@@ -159,11 +157,7 @@ const RoomManagement = () => {
     
     // Fetch current room equipment distribution
     try {
-      const token = localStorage.getItem('access_token');
-      const response = await axios.get(
-        `${API_BASE}/equipment-config/equipment_distribution/`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const response = await api.get('/equipment-config/equipment_distribution/');
       
       // Build current assignments map
       const roomAssignments = {};
@@ -228,30 +222,79 @@ const RoomManagement = () => {
   const handleEquipmentSave = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('access_token');
-      
-      // Distribute equipment with quantities
-      for (const [equipmentId, quantity] of Object.entries(equipmentQuantities)) {
-        if (quantity > 0) {
-          await axios.post(
-            `${API_BASE}/equipment-config/distribute-equipment/`,
-            {
+
+      const operations = [];
+      for (const item of roomEquipment) {
+        const equipmentId = item.equipment_id;
+        const currentQty = item.currently_assigned || 0;
+        const desiredQtyRaw = equipmentQuantities[equipmentId] !== undefined
+          ? equipmentQuantities[equipmentId]
+          : currentQty;
+        const desiredQty = Number(desiredQtyRaw || 0);
+
+        if (desiredQty === currentQty) {
+          continue;
+        }
+
+        if (desiredQty <= 0 && currentQty > 0) {
+          operations.push({
+            name: item.name,
+            promise: api.post('/equipment-config/remove-equipment-from-room/', {
               room_id: currentRoom.id,
-              equipment_id: parseInt(equipmentId),
-              quantity: parseInt(quantity)
-            },
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
+              equipment_id: equipmentId,
+            }),
+          });
+          continue;
+        }
+
+        if (desiredQty > 0) {
+          operations.push({
+            name: item.name,
+            promise: api.post('/equipment-config/distribute-equipment/', {
+              room_id: currentRoom.id,
+              equipment_id: equipmentId,
+              quantity: desiredQty,
+            }),
+          });
         }
       }
 
-      setAlertModal({
-        isOpen: true,
-        title: 'Success',
-        message: 'Equipment distribution updated successfully',
-        type: 'success'
+      if (!operations.length) {
+        setAlertModal({
+          isOpen: true,
+          title: 'No Changes',
+          message: 'No equipment quantity changes to save.',
+          type: 'info'
+        });
+        setLoading(false);
+        return;
+      }
+
+      const results = await Promise.allSettled(operations.map((op) => op.promise));
+      const failed = [];
+      results.forEach((result, idx) => {
+        if (result.status === 'rejected') {
+          const errorMsg = result.reason?.response?.data?.error || result.reason?.message || 'Unknown error';
+          failed.push(`${operations[idx].name}: ${errorMsg}`);
+        }
       });
-      
+
+      if (failed.length > 0) {
+        setAlertModal({
+          isOpen: true,
+          title: 'Partial Save',
+          message: `Some assignments failed:\n${failed.slice(0, 4).join('\n')}`,
+          type: 'warning'
+        });
+      } else {
+        setAlertModal({
+          isOpen: true,
+          title: 'Success',
+          message: 'Equipment distribution updated successfully',
+          type: 'success'
+        });
+      }
+
       setShowEquipmentModal(false);
       fetchRooms();
     } catch (err) {
@@ -269,14 +312,12 @@ const RoomManagement = () => {
 
   const handleRemoveEquipment = async (equipmentId) => {
     try {
-      const token = localStorage.getItem('access_token');
-      await axios.post(
-        `${API_BASE}/equipment-config/remove-equipment-from-room/`,
+      await api.post(
+        '/equipment-config/remove-equipment-from-room/',
         {
           room_id: currentRoom.id,
           equipment_id: equipmentId
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
+        }
       );
       
       // Update local state

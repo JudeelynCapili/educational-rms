@@ -1,39 +1,56 @@
 import React, { useState, useEffect } from 'react';
 import { FiTool, FiRefreshCw, FiDownload } from 'react-icons/fi';
 import './ModelingModule.css';
+import api from '../../services/api';
 
 const EquipmentUsageModel = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    fetchEquipmentData();
-  }, []);
+  const [error, setError] = useState(null);
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().slice(0, 10));
 
   const fetchEquipmentData = async () => {
     setLoading(true);
+    setError(null);
     try {
-      // TODO: Replace with actual API call
+      const response = await api.get('/capacity/current_utilization/', {
+        params: { date: selectedDate },
+      });
+
+      const equipment = (response.data?.equipment_usage || []).map((eq) => {
+        const stress = Number(eq.assignment_pct || 0);
+        const status = stress > 75 ? 'overused' : stress < 40 ? 'idle' : 'optimal';
+        return {
+          id: eq.equipment_id,
+          name: eq.equipment_name,
+          assignedQuantity: Number(eq.assigned_quantity || 0),
+          availableQuantity: Number(eq.available_quantity || 0),
+          totalQuantity: Number(eq.total_quantity || 0),
+          roomAssignments: Number(eq.room_assignments || 0),
+          stress,
+          status,
+        };
+      });
+
       setData({
         summary: {
-          totalEquipment: 42,
-          idle: 8,
-          optimal: 28,
-          overused: 6
+          totalEquipment: equipment.length,
+          idle: equipment.filter((item) => item.status === 'idle').length,
+          optimal: equipment.filter((item) => item.status === 'optimal').length,
+          overused: equipment.filter((item) => item.status === 'overused').length,
         },
-        equipment: [
-          { id: 1, name: 'Projector A', checkouts: 45, avgUsagePerDay: 3.2, stress: 65, status: 'optimal' },
-          { id: 2, name: 'Projector B', checkouts: 12, avgUsagePerDay: 0.9, stress: 30, status: 'idle' },
-          { id: 3, name: 'Microscope 1', checkouts: 78, avgUsagePerDay: 5.6, stress: 88, status: 'overused' },
-          { id: 4, name: 'Microscope 2', checkouts: 34, avgUsagePerDay: 2.4, stress: 55, status: 'optimal' },
-          { id: 5, name: 'Oscilloscope', checkouts: 92, avgUsagePerDay: 6.6, stress: 95, status: 'overused' },
-          { id: 6, name: 'Multimeter Set', checkouts: 156, avgUsagePerDay: 11.1, stress: 78, status: 'optimal' },
-        ]
+        equipment,
       });
+    } catch (err) {
+      setError(err?.response?.data?.error || 'Failed to load equipment usage data.');
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchEquipmentData();
+  }, [selectedDate]);
 
   const getStressColor = (stress) => {
     if (stress > 75) return '#ef4444';
@@ -54,6 +71,21 @@ const EquipmentUsageModel = () => {
           <FiRefreshCw /> {loading ? 'Loading...' : 'Refresh'}
         </button>
       </div>
+
+      <div className="card">
+        <div className="params-grid">
+          <div className="param-input">
+            <label>Date</label>
+            <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />
+          </div>
+        </div>
+      </div>
+
+      {error && (
+        <div className="error-banner">
+          <p>{error}</p>
+        </div>
+      )}
 
       {data && (
         <div className="modeling-content">
@@ -89,9 +121,9 @@ const EquipmentUsageModel = () => {
               <thead>
                 <tr>
                   <th>Equipment Name</th>
-                  <th>Total Checkouts</th>
-                  <th>Avg Usage/Day</th>
-                  <th>Stress Index</th>
+                  <th>Assigned Qty</th>
+                  <th>Available Qty</th>
+                  <th>Assignment Stress</th>
                   <th>Status</th>
                 </tr>
               </thead>
@@ -99,8 +131,8 @@ const EquipmentUsageModel = () => {
                 {data.equipment.map((item) => (
                   <tr key={item.id} className={item.status}>
                     <td>{item.name}</td>
-                    <td className="value">{item.checkouts}</td>
-                    <td className="value">{item.avgUsagePerDay.toFixed(1)} hrs</td>
+                    <td className="value">{item.assignedQuantity} / {item.totalQuantity}</td>
+                    <td className="value">{item.availableQuantity}</td>
                     <td>
                       <div className="stress-indicator">
                         <div className="stress-bar">
@@ -112,7 +144,7 @@ const EquipmentUsageModel = () => {
                             }}
                           />
                         </div>
-                        <span>{item.stress}%</span>
+                        <span>{item.stress.toFixed(1)}%</span>
                       </div>
                     </td>
                     <td>
@@ -128,20 +160,23 @@ const EquipmentUsageModel = () => {
 
           {/* Recommendations */}
           <div className="card recommendations-card">
-            <h3>📊 Recommendations</h3>
+            <h3>Recommendations</h3>
             <div className="recommendation-items">
-              <div className="rec-item high-priority">
-                <strong>🔴 High Priority:</strong> Oscilloscope is at 95% stress. Consider maintenance or additional units.
-              </div>
-              <div className="rec-item high-priority">
-                <strong>🔴 High Priority:</strong> Microscope 1 is overused. Schedule preventive maintenance.
-              </div>
-              <div className="rec-item medium-priority">
-                <strong>🟡 Medium Priority:</strong> Projector B is idle. Reassign or remove from inventory.
-              </div>
-              <div className="rec-item low-priority">
-                <strong>🟢 Low Priority:</strong> Multimeter set has balanced usage - optimal resource.
-              </div>
+              {data.equipment.filter((item) => item.status === 'overused').slice(0, 3).map((item) => (
+                <div className="rec-item high-priority" key={`over-${item.id}`}>
+                  <strong>High Priority:</strong> {item.name} is heavily assigned ({item.stress.toFixed(1)}%).
+                </div>
+              ))}
+              {data.equipment.filter((item) => item.status === 'idle').slice(0, 3).map((item) => (
+                <div className="rec-item medium-priority" key={`idle-${item.id}`}>
+                  <strong>Medium Priority:</strong> {item.name} has low assignment ({item.stress.toFixed(1)}%).
+                </div>
+              ))}
+              {!data.equipment.some((item) => item.status === 'overused') && (
+                <div className="rec-item low-priority">
+                  <strong>Low Priority:</strong> No equipment is currently over-assigned.
+                </div>
+              )}
             </div>
           </div>
 

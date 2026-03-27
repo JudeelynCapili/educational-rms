@@ -1,46 +1,87 @@
 import React, { useState, useEffect } from 'react';
 import { FiTrendingUp, FiRefreshCw, FiDownload } from 'react-icons/fi';
 import './ModelingModule.css';
+import api from '../../services/api';
 
 const DemandForecasting = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const [timeframe, setTimeframe] = useState('semester');
 
   useEffect(() => {
     fetchForecastData();
   }, [timeframe]);
 
+  const forecastScaleMax = data?.forecast?.length
+    ? Math.max(...data.forecast.map((item) => item.confidence[1] || 0), 1)
+    : 1;
+
   const fetchForecastData = async () => {
     setLoading(true);
+    setError(null);
     try {
-      // TODO: Replace with actual API call
-      // const response = await fetch(`/api/v1/modeling/demand-forecast?timeframe=${timeframe}`);
-      // const result = await response.json();
-      // setData(result);
+      const days = timeframe === 'week' ? 28 : timeframe === 'year' ? 365 : 180;
+      const [trendResp, peakResp] = await Promise.all([
+        api.get('/capacity/trend_analysis/', { params: { days } }),
+        api.get('/capacity/peak_hours/', { params: { days: Math.min(days, 60) } }),
+      ]);
+
+      const trendData = trendResp.data?.trend_data || [];
+      const bookings = trendData.map((item) => Number(item.bookings || 0));
+      const avgBookings = bookings.length
+        ? bookings.reduce((sum, val) => sum + val, 0) / bookings.length
+        : 0;
+      const peakBookings = bookings.length ? Math.max(...bookings) : 0;
+
+      const midpoint = Math.max(1, Math.floor(bookings.length / 2));
+      const early = bookings.slice(0, midpoint);
+      const late = bookings.slice(midpoint);
+      const avgEarly = early.length ? early.reduce((s, v) => s + v, 0) / early.length : 0;
+      const avgLate = late.length ? late.reduce((s, v) => s + v, 0) / late.length : 0;
+      const growthPct = avgEarly > 0 ? ((avgLate - avgEarly) / avgEarly) * 100 : 0;
+
+      const horizon = timeframe === 'week' ? 4 : 6;
+      const base = avgLate || avgBookings || 1;
+      const trendSlope = growthPct / 100 / horizon;
+      const forecast = Array.from({ length: horizon }).map((_, idx) => {
+        const projected = Math.max(0, base * (1 + trendSlope * (idx + 1)));
+        const low = Math.max(0, projected * 0.85);
+        const high = projected * 1.15;
+        return {
+          week: timeframe === 'week' ? `Week ${idx + 1}` : `Period ${idx + 1}`,
+          forecast: Number(projected.toFixed(1)),
+          confidence: [Number(low.toFixed(1)), Number(high.toFixed(1))],
+        };
+      });
+
+      const peakSlots = peakResp.data?.peak_slots || [];
+      const underutilizedSlots = peakResp.data?.underutilized_slots || [];
+      const seasonalPatterns = [
+        {
+          season: 'Peak Slot Intensity',
+          growth: peakSlots.length ? Number((peakSlots[0].booking_count || 0).toFixed(1)) : 0,
+        },
+        {
+          season: 'Low Slot Intensity',
+          growth: underutilizedSlots.length ? Number((underutilizedSlots[0].booking_count || 0).toFixed(1)) : 0,
+        },
+        { season: 'Trend Growth', growth: Number(growthPct.toFixed(1)) },
+        { season: 'Avg Daily Demand', growth: Number(avgBookings.toFixed(1)) },
+      ];
 
       setData({
         summary: {
-          avgBookingsPerDay: 42,
-          peakDayBookings: 68,
-          forecastedGrowth: '12%',
-          confidenceLevel: 'Medium'
+          avgBookingsPerDay: Number(avgBookings.toFixed(1)),
+          peakDayBookings: peakBookings,
+          forecastedGrowth: `${growthPct >= 0 ? '+' : ''}${growthPct.toFixed(1)}%`,
+          confidenceLevel: days >= 180 ? 'High' : days >= 90 ? 'Medium' : 'Low',
         },
-        forecast: [
-          { week: 'Week 1', forecast: 35, confidence: [28, 42] },
-          { week: 'Week 2', forecast: 40, confidence: [32, 48] },
-          { week: 'Week 3', forecast: 45, confidence: [36, 54] },
-          { week: 'Week 4', forecast: 50, confidence: [40, 60] },
-          { week: 'Week 5', forecast: 42, confidence: [33, 51] },
-          { week: 'Week 6', forecast: 48, confidence: [38, 58] },
-        ],
-        seasonalPatterns: [
-          { season: 'Fall Semester', growth: 0 },
-          { season: 'Spring Semester', growth: 8 },
-          { season: 'Summer', growth: -25 },
-          { season: 'Winter Break', growth: -40 },
-        ]
+        forecast,
+        seasonalPatterns,
       });
+    } catch (err) {
+      setError(err?.response?.data?.error || 'Failed to load demand forecast data.');
     } finally {
       setLoading(false);
     }
@@ -59,6 +100,12 @@ const DemandForecasting = () => {
           <FiRefreshCw /> {loading ? 'Loading...' : 'Refresh'}
         </button>
       </div>
+
+      {error && (
+        <div className="error-banner">
+          <p>{error}</p>
+        </div>
+      )}
 
       {data && (
         <div className="modeling-content">
@@ -123,13 +170,13 @@ const DemandForecasting = () => {
                     <td>
                       <div className="bar-chart">
                         <div className="bar-item">
-                          <div className="bar-low" style={{ height: `${(item.confidence[0] / 60) * 100}%` }}></div>
+                          <div className="bar-low" style={{ height: `${(item.confidence[0] / forecastScaleMax) * 100}%` }}></div>
                         </div>
                         <div className="bar-item">
-                          <div className="bar-mid" style={{ height: `${(item.forecast / 60) * 100}%` }}></div>
+                          <div className="bar-mid" style={{ height: `${(item.forecast / forecastScaleMax) * 100}%` }}></div>
                         </div>
                         <div className="bar-item">
-                          <div className="bar-high" style={{ height: `${(item.confidence[1] / 60) * 100}%` }}></div>
+                          <div className="bar-high" style={{ height: `${(item.confidence[1] / forecastScaleMax) * 100}%` }}></div>
                         </div>
                       </div>
                     </td>
