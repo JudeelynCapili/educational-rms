@@ -110,6 +110,14 @@
   gap: 0.65rem;
 }
 
+.timeline-toolbar-padded {
+  padding: 0 1rem 1rem;
+}
+
+.simulation-action-message {
+  padding: 0.75rem 1rem;
+}
+
 .timeline-metric-select {
   border: 1px solid #cbd5e1;
   border-radius: 6px;
@@ -525,6 +533,18 @@
   animation: barRise 0.55s ease both;
 }
 
+.sim-process-bar-low {
+  background: #f59e0b;
+}
+
+.sim-process-bar-moderate {
+  background: #10b981;
+}
+
+.sim-process-bar-critical {
+  background: #ef4444;
+}
+
 .sim-process-bar::after {
   content: '';
   position: absolute;
@@ -540,6 +560,18 @@
   filter: brightness(1.08);
   box-shadow: 0 0 0 2px rgba(30, 64, 175, 0.22);
   animation: barRise 0.4s ease both, activeBarPulse 1.1s ease-in-out infinite;
+}
+
+.progress-fill-low {
+  background: #10b981;
+}
+
+.progress-fill-moderate {
+  background: #f59e0b;
+}
+
+.progress-fill-critical {
+  background: #ef4444;
 }
 
 .sim-process-label {
