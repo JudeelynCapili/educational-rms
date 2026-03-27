@@ -25,10 +25,10 @@ const SimulationTemplate = ({ title, description, simulationType }) => {
   const [isPlaybackActive, setIsPlaybackActive] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [simulationParams, setSimulationParams] = useState({
-    lookbackDays: 14,
-    simulationHours: 8,
-    iterations: 400,
-    demandMultiplier: 1.2,
+    lookbackDays: 120,
+    simulationHours: 12,
+    iterations: 1500,
+    demandMultiplier: 3,
     serviceDistribution: 'exponential',
     serviceRate: 1.5,
     serviceTime: 0.6,
@@ -82,14 +82,9 @@ const SimulationTemplate = ({ title, description, simulationType }) => {
       const estimatedArrival = totalBookings > 0
         ? totalBookings / Math.max(1, lookbackDays * simHours)
         : Math.max(0.4, Number(response.rooms?.length || 1) / 10);
-      const avgServiceTime = totalBookings > 0
-        ? totalHours / totalBookings
-        : 0.75;
-
       setSimulationParams((prev) => ({
         ...prev,
-        serviceRate: Number((1 / Math.max(avgServiceTime, 0.1)).toFixed(2)),
-        serviceTime: Number(avgServiceTime.toFixed(2)),
+        // Keep user/preset defaults stable; only refresh derived arrival rate from live data.
         arrivalRate: Number(estimatedArrival.toFixed(3)),
       }));
     } catch (error) {
@@ -158,7 +153,7 @@ const SimulationTemplate = ({ title, description, simulationType }) => {
     );
     const totalProjectedArrivals = Number(params.arrival_rate || 0) * Number(params.simulation_hours || 0);
 
-    return rooms.map((room) => {
+    const baseRows = rooms.map((room) => {
       const historical = summaryMap.get(room.id);
       const historicalBookings = Number(historical?.total_bookings || 0);
       const demandShare = totalHistoricalBookings > 0
@@ -167,7 +162,6 @@ const SimulationTemplate = ({ title, description, simulationType }) => {
       const projectedBookings = totalProjectedArrivals * demandShare;
       const slotCapacity = Number(params.simulation_hours || 1);
       const loadPct = Math.min(100, (projectedBookings / Math.max(slotCapacity, 1)) * 100);
-      const pressure = loadPct > 95 ? 'critical' : loadPct > 75 ? 'high' : loadPct > 45 ? 'moderate' : 'low';
 
       return {
         roomId: room.id,
@@ -176,8 +170,28 @@ const SimulationTemplate = ({ title, description, simulationType }) => {
         historicalBookings,
         projectedBookings: Number(projectedBookings.toFixed(2)),
         loadPct: Number(loadPct.toFixed(1)),
-        pressure,
         utilization: Number(((metrics.server_utilization || 0) * 100).toFixed(1)),
+      };
+    });
+
+    const maxLoad = baseRows.reduce((max, row) => Math.max(max, row.loadPct), 0);
+
+    return baseRows.map((row) => {
+      const relativePressure = maxLoad > 0 ? (row.loadPct / maxLoad) * 100 : 0;
+      let pressure = 'low';
+
+      if (row.loadPct >= 85) {
+        pressure = 'critical';
+      } else if (row.loadPct >= 65 || relativePressure >= 90) {
+        pressure = 'high';
+      } else if (row.loadPct >= 35 || relativePressure >= 70) {
+        pressure = 'moderate';
+      }
+
+      return {
+        ...row,
+        pressure,
+        relativePressure: Number(relativePressure.toFixed(1)),
       };
     });
   };
@@ -188,8 +202,6 @@ const SimulationTemplate = ({ title, description, simulationType }) => {
       return replications.slice(0, 24).map((row, idx) => ({
         period: `Rep ${idx + 1}`,
         utilization: Number(((row.server_utilization || 0) * 100).toFixed(1)),
-        queueLength: Number((row.avg_queue_length || 0).toFixed(2)),
-        waitingTime: Number((row.avg_waiting_time || 0).toFixed(2)),
       }));
     }
 
@@ -199,8 +211,6 @@ const SimulationTemplate = ({ title, description, simulationType }) => {
       return {
         period: `Step ${idx + 1}`,
         utilization: Number(Math.min(100, util * factor).toFixed(1)),
-        queueLength: Number(((result?.metrics?.avg_queue_length || 0) * factor).toFixed(2)),
-        waitingTime: Number(((result?.metrics?.avg_waiting_time || 0) * factor).toFixed(2)),
       };
     });
   };
@@ -311,9 +321,114 @@ const SimulationTemplate = ({ title, description, simulationType }) => {
   }, [isPlaybackActive, playbackSpeed, simData]);
 
   const currentFrame = simData?.timeline?.[playbackIndex] || null;
-  const queueAgents = Math.max(1, Math.min(12, Math.round((currentFrame?.queueLength || 0) * 2)));
+  const queueAgents = Math.max(
+    2,
+    Math.min(
+      14,
+      Math.round(((currentFrame?.utilization || 0) / 10) + Number(simulationParams.demandMultiplier || 1) * 1.5)
+    )
+  );
   const servingAgents = Math.max(1, Math.min(12, Math.round((currentFrame?.utilization || 0) / 9)));
   const topAnimatedRooms = (simData?.roomLoad || []).slice(0, 8);
+  const pressuredRooms = (simData?.roomLoad || []).filter((room) => room.loadPct >= 75).length;
+  const throughputPerHour = Number(metrics.served_count_avg || 0) / Math.max(1, Number(simulationParams.simulationHours || 1));
+  const roomFlowBranches = useMemo(() => {
+    const branchRooms = topAnimatedRooms.slice(0, 4);
+    if (!branchRooms.length) {
+      return [];
+    }
+
+    const anchors = [20, 38, 62, 80];
+    const totalLoad = branchRooms.reduce((sum, room) => sum + Math.max(1, Number(room.loadPct || 0)), 0);
+    const dispatchTotal = Math.max(
+      5,
+      Math.min(26, Math.round(((currentFrame?.utilization || 0) / 5.2) + branchRooms.length * 2))
+    );
+
+    return branchRooms.map((room, idx) => {
+      const weight = Math.max(1, Number(room.loadPct || 0)) / Math.max(1, totalLoad);
+      const roomDispatch = Math.max(1, Math.round(dispatchTotal * weight));
+      return {
+        roomId: room.roomId,
+        roomName: room.roomName,
+        loadPct: room.loadPct,
+        pressure: room.pressure,
+        targetY: anchors[idx] || Math.min(84, 20 + idx * 16),
+        agentCount: roomDispatch,
+      };
+    });
+  }, [topAnimatedRooms, currentFrame]);
+
+  const branchAgents = useMemo(() => {
+    return roomFlowBranches.flatMap((branch, branchIdx) => {
+      return Array.from({ length: branch.agentCount }).map((_, idx) => ({
+        id: `br-${branch.roomId}-${idx}`,
+        targetY: branch.targetY,
+        loadPct: branch.loadPct,
+        delay: ((idx * 0.17) + (branchIdx * 0.31)) % 2.8,
+        duration: Math.max(1.4, 3.25 - (currentFrame?.utilization || 0) / 130 + (100 - branch.loadPct) / 260),
+      }));
+    });
+  }, [roomFlowBranches, currentFrame]);
+
+  const flowAgents = useMemo(() => {
+    if (!currentFrame) {
+      return { intake: [], service: [] };
+    }
+
+    const intakeCount = Math.max(
+      6,
+      Math.min(
+        26,
+        Math.round((currentFrame.utilization / 4.8) + Number(simulationParams.demandMultiplier || 1) * 2)
+      )
+    );
+    const serviceCount = Math.max(4, Math.min(18, Math.round(currentFrame.utilization / 6)));
+
+    const intake = Array.from({ length: intakeCount }).map((_, idx) => {
+      const lane = idx % 3;
+      return {
+        id: `in-${idx}`,
+        lane,
+        delay: (idx * 0.23) % 2.8,
+        duration: Math.max(1.8, 3.9 - (currentFrame.utilization / 100) * 1.35 + lane * 0.2),
+      };
+    });
+
+    const service = Array.from({ length: serviceCount }).map((_, idx) => {
+      const lane = idx % 3;
+      return {
+        id: `sv-${idx}`,
+        lane,
+        delay: (idx * 0.18) % 2.2,
+        duration: Math.max(1.5, 3.1 - (currentFrame.utilization / 100) * 1.1 + lane * 0.18),
+      };
+    });
+
+    return { intake, service };
+  }, [currentFrame, simulationParams.demandMultiplier]);
+
+  const timelineBars = useMemo(() => {
+    const rows = simData?.timeline || [];
+    return rows.map((row) => {
+      const utilization = Number(row?.utilization || 0);
+      return {
+        period: row.period,
+        utilization,
+        normalized: Math.min(100, Math.max(5, utilization)),
+      };
+    });
+  }, [simData]);
+
+  const getTimelineBarColor = (value) => {
+    if (value > 75) {
+      return '#ef4444';
+    }
+    if (value > 40) {
+      return '#10b981';
+    }
+    return '#f59e0b';
+  };
 
   const animationStateClass = (util) => {
     if (util >= 80) {
@@ -481,16 +596,16 @@ const SimulationTemplate = ({ title, description, simulationType }) => {
               <div className="card-label">Server Utilization</div>
             </div>
             <div className="card summary-card">
-              <div className="card-value">{Number(metrics.avg_queue_length || 0).toFixed(2)}</div>
-              <div className="card-label">Average Queue Length</div>
-            </div>
-            <div className="card summary-card">
-              <div className="card-value">{Number(metrics.avg_waiting_time || 0).toFixed(2)}h</div>
-              <div className="card-label">Average Waiting Time</div>
-            </div>
-            <div className="card summary-card optimal">
               <div className="card-value">{Number(metrics.served_count_avg || 0).toFixed(0)}</div>
               <div className="card-label">Avg Served Jobs</div>
+            </div>
+            <div className="card summary-card">
+              <div className="card-value">{throughputPerHour.toFixed(1)}/h</div>
+              <div className="card-label">Throughput</div>
+            </div>
+            <div className="card summary-card optimal">
+              <div className="card-value">{pressuredRooms}</div>
+              <div className="card-label">High-Load Rooms</div>
             </div>
           </div>
 
@@ -523,13 +638,76 @@ const SimulationTemplate = ({ title, description, simulationType }) => {
                 <div className="cartoon-stage-header">
                   <span>{currentFrame.period}</span>
                   <span>{currentFrame.utilization}% utilization</span>
-                  <span>{currentFrame.queueLength} queue</span>
-                  <span>{currentFrame.waitingTime}h wait</span>
+                  <span>{throughputPerHour.toFixed(1)} jobs/hour</span>
+                  <span>{pressuredRooms} high-load rooms</span>
+                </div>
+
+                <div className="flow-sim-map" role="img" aria-label="Animated simulation flow of people through intake, service, and exit">
+                  <div className="flow-node node-entry">Entry</div>
+                  <div className="flow-node node-service">Service</div>
+                  <div className="flow-node node-exit">Exit</div>
+                  <div className="flow-route route-a" />
+                  <div className="flow-route route-b" />
+                  <div className="flow-branch-trunk" />
+
+                  {roomFlowBranches.map((branch) => (
+                    <React.Fragment key={`branch-${branch.roomId}`}>
+                      <div
+                        className="flow-route-room"
+                        style={{
+                          top: `${branch.targetY}%`,
+                          opacity: `${0.35 + Math.min(0.5, branch.loadPct / 200)}`,
+                        }}
+                      />
+                      <div
+                        className={`flow-room-node room-pressure-${branch.pressure}`}
+                        style={{ top: `${branch.targetY}%` }}
+                      >
+                        <span className="flow-room-name">{branch.roomName}</span>
+                        <span className="flow-room-load">{branch.loadPct}%</span>
+                      </div>
+                    </React.Fragment>
+                  ))}
+
+                  {flowAgents.intake.map((agent) => (
+                    <span
+                      key={agent.id}
+                      className={`flow-agent intake lane-${agent.lane}`}
+                      style={{
+                        animationDelay: `${agent.delay}s`,
+                        animationDuration: `${agent.duration}s`,
+                      }}
+                    />
+                  ))}
+
+                  {flowAgents.service.map((agent) => (
+                    <span
+                      key={agent.id}
+                      className={`flow-agent service lane-${agent.lane}`}
+                      style={{
+                        animationDelay: `${agent.delay}s`,
+                        animationDuration: `${agent.duration}s`,
+                      }}
+                    />
+                  ))}
+
+                  {branchAgents.map((agent) => (
+                    <span
+                      key={agent.id}
+                      className="flow-agent branch"
+                      style={{
+                        '--target-y': `${agent.targetY}%`,
+                        animationDelay: `${agent.delay}s`,
+                        animationDuration: `${agent.duration}s`,
+                        opacity: Math.max(0.58, Math.min(1, agent.loadPct / 100)),
+                      }}
+                    />
+                  ))}
                 </div>
 
                 <div className="cartoon-lanes">
                   <div className="cartoon-lane">
-                    <h4>Queue Lane</h4>
+                    <h4>Intake Pulse</h4>
                     <div className="agent-row">
                       {Array.from({ length: queueAgents }).map((_, idx) => (
                         <span key={`q-${idx}`} className="agent-dot queue-dot" />
@@ -556,11 +734,11 @@ const SimulationTemplate = ({ title, description, simulationType }) => {
                       <div className="cartoon-room-title">{room.roomName}</div>
                       <div className="cartoon-room-bar">
                         <div
-                          className={`cartoon-room-fill ${animationStateClass(room.loadPct)}`}
-                          style={{ width: `${Math.max(2, room.loadPct)}%` }}
+                          className={`cartoon-room-fill ${animationStateClass(room.relativePressure || room.loadPct)}`}
+                          style={{ width: `${Math.max(2, Number(room.relativePressure || room.loadPct || 0))}%` }}
                         />
                       </div>
-                      <div className="cartoon-room-meta">{room.loadPct}%</div>
+                      <div className="cartoon-room-meta">{Number(room.relativePressure || 0).toFixed(1)}% relative</div>
                     </div>
                   ))}
                 </div>
@@ -584,17 +762,20 @@ const SimulationTemplate = ({ title, description, simulationType }) => {
                       <span>Capacity: {room.roomCapacity}</span>
                       <span>History bookings: {room.historicalBookings}</span>
                       <span>Projected bookings: {room.projectedBookings}</span>
+                      <span>Relative pressure: {room.relativePressure}%</span>
                     </div>
                     <div className="progress-bar">
                       <div
                         className="progress-fill"
                         style={{
-                          width: `${room.loadPct}%`,
-                          backgroundColor: room.loadPct > 90 ? '#ef4444' : room.loadPct > 70 ? '#f59e0b' : '#10b981',
+                          width: `${Math.max(2, Number(room.relativePressure || room.loadPct || 0))}%`,
+                          backgroundColor: (room.relativePressure || 0) > 90 ? '#ef4444' : (room.relativePressure || 0) > 70 ? '#f59e0b' : '#10b981',
                         }}
                       />
                     </div>
-                    <div className="room-load-value">{room.loadPct}% projected slot load</div>
+                    <div className="room-load-value">
+                      {room.loadPct}% projected slot load • {room.relativePressure}% relative pressure
+                    </div>
                   </div>
                 ))}
               </div>
@@ -604,43 +785,44 @@ const SimulationTemplate = ({ title, description, simulationType }) => {
           {/* Timeline Visualization */}
           <div className="card">
             <div className="card-header">
-              <h2>Simulation Replication Timeline</h2>
+              <h2>Simulation Process Bar Graph</h2>
               <button className="btn-export" onClick={exportResults}>
                 <FiDownload /> Export Results
               </button>
             </div>
-            <table className="timeline-table">
-              <thead>
-                <tr>
-                  <th>Period</th>
-                  <th>Utilization</th>
-                  <th>Avg Queue</th>
-                  <th>Avg Wait</th>
-                  <th>Visualization</th>
-                </tr>
-              </thead>
-              <tbody>
-                {simData.timeline.map((item, idx) => (
-                  <tr key={idx}>
-                    <td>{item.period}</td>
-                    <td className="value">{item.utilization}%</td>
-                    <td className="value">{item.queueLength}</td>
-                    <td className="value">{item.waitingTime}h</td>
-                    <td>
-                      <div className="progress-bar">
-                        <div
-                          className="progress-fill"
-                          style={{
-                            width: `${item.utilization}%`,
-                            backgroundColor: item.utilization > 75 ? '#ef4444' : item.utilization > 40 ? '#10b981' : '#f59e0b'
-                          }}
-                        />
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="sim-process-chart-wrap">
+              <div className="sim-process-axis-label">Utilization (%)</div>
+              <div className="sim-process-chart">
+                <div className="sim-process-grid">
+                  <span>100%</span>
+                  <span>75%</span>
+                  <span>50%</span>
+                  <span>25%</span>
+                  <span>0%</span>
+                </div>
+                <div className="sim-process-bars">
+                  {timelineBars.map((bar, idx) => (
+                    <div key={`${bar.period}-${idx}`} className="sim-process-bar-item">
+                      <div
+                        className={`sim-process-bar ${idx === playbackIndex ? 'active' : ''}`}
+                        title={`${bar.period}: ${bar.utilization.toFixed(1)}%`}
+                        style={{
+                          height: `${Math.max(6, bar.normalized)}%`,
+                          backgroundColor: getTimelineBarColor(bar.utilization),
+                          animationDelay: `${idx * 0.05}s`,
+                        }}
+                      />
+                      <span className="sim-process-label">{idx + 1}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="sim-process-meta">
+                <span>Metric: Utilization</span>
+                <span>Average throughput: {throughputPerHour.toFixed(1)} jobs/hour</span>
+                <span>Highlighted: {currentFrame?.period || 'N/A'}</span>
+              </div>
+            </div>
           </div>
 
           {/* Insights */}
@@ -648,8 +830,8 @@ const SimulationTemplate = ({ title, description, simulationType }) => {
             <h3>Key Insights</h3>
             <ul>
               <li>Estimated arrival rate: {adjustedArrivalRate.toFixed(2)} requests/hour based on real bookings and scenario multipliers.</li>
-              <li>Average waiting time is {Number(metrics.avg_waiting_time || 0).toFixed(2)} hours for this scenario.</li>
-              <li>Average queue length is {Number(metrics.avg_queue_length || 0).toFixed(2)} with peak queue {Number(metrics.max_queue_length || 0)}.</li>
+              <li>Average throughput is {throughputPerHour.toFixed(1)} jobs/hour across {Number(simulationParams.simulationHours || 0)} simulated hours.</li>
+              <li>{pressuredRooms} room(s) are currently in high-load pressure zones and may need balancing.</li>
               <li>The simulator used {Number(metrics.num_replications || simulationParams.iterations)} Monte Carlo replications for confidence.</li>
             </ul>
           </div>
