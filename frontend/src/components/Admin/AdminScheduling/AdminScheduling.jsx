@@ -1,8 +1,4 @@
-import React, { useState } from 'react';
-import RoomManagement from '../RoomManagement/RoomManagement';
-import BookingManagement from '../BookingManagement/BookingManagement';
-import SchedulingCalendar from '../SchedulingCalendar/SchedulingCalendar';
-import ResourceSettings from '../ResourceSettings/ResourceSettings';
+import React, { useState, lazy, Suspense } from 'react';
 import {
   FiCalendar,
   FiClipboard,
@@ -19,6 +15,11 @@ import {
   FiBookOpen,
 } from 'react-icons/fi';
 import './styles/AdminScheduling.css';
+
+const RoomManagement = lazy(() => import('../RoomManagement/RoomManagement'));
+const BookingManagement = lazy(() => import('../BookingManagement/BookingManagement'));
+const SchedulingCalendar = lazy(() => import('../SchedulingCalendar/SchedulingCalendar'));
+const ResourceSettings = lazy(() => import('../ResourceSettings/ResourceSettings'));
 
 const AdminScheduling = () => {
   const [activeTab, setActiveTab] = useState('calendar');
@@ -141,10 +142,12 @@ const AdminScheduling = () => {
       </div>
 
       <div className="tab-content">
-        {activeTab === 'calendar' && <SchedulingCalendar />}
-        {activeTab === 'bookings' && <BookingManagement />}
-        {activeTab === 'rooms' && <RoomManagement />}
-        {activeTab === 'resources' && <ResourceSettings />}
+        <Suspense fallback={<div className="loading">Loading section...</div>}>
+          {activeTab === 'calendar' && <SchedulingCalendar />}
+          {activeTab === 'bookings' && <BookingManagement />}
+          {activeTab === 'rooms' && <RoomManagement />}
+          {activeTab === 'resources' && <ResourceSettings />}
+        </Suspense>
       </div>
     </div>
   );

@@ -20,12 +20,16 @@ class EquipmentSerializer(serializers.ModelSerializer):
     
     def get_assigned_quantity(self, obj):
         """Get total quantity assigned to rooms"""
+        if hasattr(obj, 'assigned_total'):
+            return int(obj.assigned_total or 0)
         return obj.get_distribution().aggregate(
             total=django_models.Sum('quantity')
         )['total'] or 0
     
     def get_available_quantity(self, obj):
         """Get available quantity not yet assigned"""
+        if hasattr(obj, 'available_total'):
+            return int(obj.available_total or 0)
         return obj.get_available_quantity()
 
 
@@ -66,6 +70,8 @@ class RoomListSerializer(serializers.ModelSerializer):
     
     def get_equipment_count(self, obj):
         """Count equipment items from RoomEquipment through model"""
+        if hasattr(obj, 'equipment_count'):
+            return int(obj.equipment_count or 0)
         return obj.room_equipment.count()
     
     class Meta:

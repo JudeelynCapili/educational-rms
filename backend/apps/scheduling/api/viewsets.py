@@ -1,9 +1,11 @@
 """Views for scheduling app."""
 from rest_framework import viewsets, status, filters
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from django.db.models import Q, Count
+from django.db.models import Q, Count, Sum, F, IntegerField, ExpressionWrapper
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 from datetime import datetime, timedelta, time
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -17,6 +19,13 @@ from .serializers import (
     CalendarEventSerializer
 )
 from api.permissions import IsAdminUser, IsFacultyOrAdmin
+
+
+class BookingPagination(PageNumberPagination):
+    """Default booking pagination for responsive booking list rendering."""
+    page_size = 15
+    page_size_query_param = 'page_size'
+    max_page_size = 100
 
 
 class EquipmentViewSet(viewsets.ModelViewSet):
@@ -37,7 +46,13 @@ class EquipmentViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """Filter equipment based on parameters."""
-        queryset = Equipment.objects.all()
+        queryset = Equipment.objects.annotate(
+            assigned_total=Coalesce(Sum('equipment_rooms__quantity'), 0),
+            available_total=ExpressionWrapper(
+                F('quantity') - Coalesce(Sum('equipment_rooms__quantity'), 0),
+                output_field=IntegerField()
+            ),
+        )
 
         category = self.request.query_params.get('category')
         if category:
@@ -124,7 +139,9 @@ class RoomViewSet(viewsets.ModelViewSet):
         
         # Optimize queries - prefetch room_equipment for list view
         if self.action == 'list':
-            queryset = queryset.prefetch_related('room_equipment')
+            queryset = queryset.annotate(
+                equipment_count=Count('room_equipment', distinct=True)
+            ).prefetch_related('room_equipment')
         else:
             queryset = queryset.prefetch_related('room_equipment__equipment')
 
@@ -239,7 +256,7 @@ class BookingViewSet(viewsets.ModelViewSet):
     """ViewSet for managing bookings."""
     queryset = Booking.objects.all()
     permission_classes = [IsAuthenticated]
-    pagination_class = None  # Disable pagination for bookings to show all results
+    pagination_class = BookingPagination
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['purpose', 'room__name', 'user__email']
     ordering_fields = ['date', 'created_at', 'priority', 'status']

@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import useAuthStore from '../stores/authStore';
 
-export const useAuth = () => {
+export const useAuth = (autoInit = true) => {
   const {
     user,
     isAuthenticated,
@@ -16,8 +16,10 @@ export const useAuth = () => {
   } = useAuthStore();
 
   useEffect(() => {
-    initAuth();
-  }, []);
+    if (autoInit) {
+      initAuth();
+    }
+  }, [autoInit, initAuth]);
 
   return {
     user,

@@ -11,6 +11,10 @@ import './styles/BookingManagement.css';
 
 const BookingManagement = () => {
   const [bookings, setBookings] = useState([]);
+  const [totalBookings, setTotalBookings] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [pageSize] = useState(15);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
@@ -51,8 +55,12 @@ const BookingManagement = () => {
   };
 
   useEffect(() => {
-    fetchBookings();
+    setCurrentPage(1);
   }, [filters]);
+
+  useEffect(() => {
+    fetchBookings();
+  }, [filters, currentPage]);
 
   const fetchBookings = async () => {
     try {
@@ -64,32 +72,26 @@ const BookingManagement = () => {
       if (filters.end_date) params.end_date = filters.end_date;
       if (filters.is_recurring) params.is_recurring = filters.is_recurring;
 
-      // Fetch all pages to get all bookings
-      let allBookings = [];
-      let page = 1;
-      let hasMore = true;
+      params.page = currentPage;
+      params.page_size = pageSize;
+      const response = await getBookings(params);
 
-      while (hasMore) {
-        params.page = page;
-        const response = await getBookings(params);
-        
-        // Handle paginated response
-        if (response.results) {
-          allBookings = [...allBookings, ...response.results];
-          hasMore = response.next !== null;
-        } else if (Array.isArray(response)) {
-          // If response is already an array, just use it
-          allBookings = response;
-          hasMore = false;
-        } else {
-          allBookings = response;
-          hasMore = false;
-        }
-        
-        page++;
+      if (response && Array.isArray(response.results)) {
+        setBookings(response.results);
+        setTotalBookings(Number(response.count || 0));
+        setTotalPages(Math.max(1, Math.ceil(Number(response.count || 0) / pageSize)));
+      } else if (Array.isArray(response)) {
+        setBookings(response);
+        setTotalBookings(response.length);
+        setTotalPages(1);
+      } else {
+        const items = response ? [response] : [];
+        setBookings(items);
+        setTotalBookings(items.length);
+        setTotalPages(1);
       }
 
-      setBookings(allBookings);
+      setSelectedBookings([]);
       setError(null);
     } catch (err) {
       setError('Failed to fetch bookings');
@@ -361,7 +363,7 @@ const BookingManagement = () => {
             <div className="stat-icon">📅</div>
             <div className="stat-content">
               <div className="stat-label">BOOKINGS</div>
-              <div className="stat-value">{bookings.length} total</div>
+              <div className="stat-value">{totalBookings} total</div>
             </div>
           </div>
           <div className="stat-breakdown">
@@ -371,236 +373,259 @@ const BookingManagement = () => {
             </div>
             <div className="breakdown-item approved">
               <span className="breakdown-label">APPROVED:</span>
-              <span className="breakdown-value">{bookings.filter(b => b.status === 'APPROVED').length}</span>
-            </div>
-            <div className="breakdown-item confirmed">
-              <span className="breakdown-label">CONFIRMED:</span>
-              <span className="breakdown-value">{bookings.filter(b => b.status === 'CONFIRMED').length}</span>
-            </div>
-            <div className="breakdown-item completed">
-              <span className="breakdown-label">COMPLETED:</span>
-              <span className="breakdown-value">{bookings.filter(b => b.status === 'COMPLETED').length}</span>
-            </div>
-            <div className="breakdown-item cancelled">
-              <span className="breakdown-label">CANCELLED:</span>
-              <span className="breakdown-value">{bookings.filter(b => b.status === 'CANCELLED').length}</span>
-            </div>
-            <div className="breakdown-item rejected">
-              <span className="breakdown-label">REJECTED:</span>
-              <span className="breakdown-value">{bookings.filter(b => b.status === 'REJECTED').length}</span>
+                <span className="breakdown-value">{bookings.filter(b => b.status === 'APPROVED').length}</span>
+              </div>
+              <div className="breakdown-item confirmed">
+                <span className="breakdown-label">CONFIRMED:</span>
+                <span className="breakdown-value">{bookings.filter(b => b.status === 'CONFIRMED').length}</span>
+              </div>
+              <div className="breakdown-item completed">
+                <span className="breakdown-label">COMPLETED:</span>
+                <span className="breakdown-value">{bookings.filter(b => b.status === 'COMPLETED').length}</span>
+              </div>
+              <div className="breakdown-item cancelled">
+                <span className="breakdown-label">CANCELLED:</span>
+                <span className="breakdown-value">{bookings.filter(b => b.status === 'CANCELLED').length}</span>
+              </div>
+              <div className="breakdown-item rejected">
+                <span className="breakdown-label">REJECTED:</span>
+                <span className="breakdown-value">{bookings.filter(b => b.status === 'REJECTED').length}</span>
+              </div>
             </div>
           </div>
+        )}
+
+        {error && (
+          <div className="alert alert-error">
+            {error}
+            <button onClick={() => setError(null)} className="alert-close">×</button>
+          </div>
+        )}
+
+        {success && (
+          <div className="alert alert-success">
+            {success}
+            <button onClick={() => setSuccess(null)} className="alert-close">×</button>
+          </div>
+        )}
+
+        <div className="filters">
+          <select
+            name="status"
+            value={filters.status}
+            onChange={handleFilterChange}
+            className="filter-select"
+          >
+            {statusOptions.map(option => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+
+          <input
+            type="date"
+            name="start_date"
+            value={filters.start_date}
+            onChange={handleFilterChange}
+            className="filter-input"
+            placeholder="Start Date"
+          />
+
+          <input
+            type="date"
+            name="end_date"
+            value={filters.end_date}
+            onChange={handleFilterChange}
+            className="filter-input"
+            placeholder="End Date"
+          />
+
+          <select
+            name="is_recurring"
+            value={filters.is_recurring}
+            onChange={handleFilterChange}
+            className="filter-select"
+          >
+            <option value="">All Bookings</option>
+            <option value="true">Recurring Only</option>
+            <option value="false">One-time Only</option>
+          </select>
         </div>
-      )}
 
-      {error && (
-        <div className="alert alert-error">
-          {error}
-          <button onClick={() => setError(null)} className="alert-close">×</button>
-        </div>
-      )}
+        {loading ? (
+          <div className="loading">Loading bookings...</div>
+        ) : bookings.length === 0 ? (
+          <div className="no-data">No bookings found</div>
+        ) : (
+          <>
+            <div className="table-container">
+              <table className="bookings-table">
+                <thead>
+                  <tr>
+                    <th>
+                      <input
+                        type="checkbox"
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedBookings(bookings.map(b => b.id));
+                          } else {
+                            setSelectedBookings([]);
+                          }
+                        }}
+                        checked={selectedBookings.length === bookings.length && bookings.length > 0}
+                      />
+                    </th>
+                    <th>Room</th>
+                    <th>User</th>
+                    <th>Date</th>
+                    <th>Time</th>
+                    <th>Purpose</th>
+                    <th>Status</th>
+                    <th>Priority</th>
+                    <th>Participants</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bookings.map(booking => (
+                    <tr key={booking.id} className={selectedBookings.includes(booking.id) ? 'selected' : ''}>
+                      <td>
+                        <input
+                          type="checkbox"
+                          checked={selectedBookings.includes(booking.id)}
+                          onChange={() => toggleBookingSelection(booking.id)}
+                        />
+                      </td>
+                      <td>
+                        <strong>{booking.room_name}</strong>
+                        {booking.is_recurring && !booking.parent_booking && (
+                          <span className="badge badge-info ml-1" title="This is a recurring booking - approval will apply to all instances">
+                            📅 Recurring Series
+                          </span>
+                        )}
+                        {booking.is_recurring && booking.parent_booking && (
+                          <span className="badge badge-light ml-1" title="This is an instance of a recurring booking">
+                            📅 Recurring Instance
+                          </span>
+                        )}
+                      </td>
+                      <td>{booking.user_name || booking.user_email}</td>
+                      <td>
+                        {booking.is_recurring && !booking.parent_booking && booking.recurrence_end_date ? (
+                          <>
+                            {formatDate(booking.date)} - {formatDate(booking.recurrence_end_date)}
+                            <br />
+                            <small style={{ color: '#666' }}>
+                              {booking.recurrence_pattern === 'DAILY' && 'Daily'}
+                              {booking.recurrence_pattern === 'WEEKLY' && 'Weekly'}
+                              {booking.recurrence_pattern === 'BIWEEKLY' && 'Bi-weekly'}
+                              {booking.recurrence_pattern === 'MONTHLY' && 'Monthly'}
+                            </small>
+                          </>
+                        ) : (
+                          formatDate(booking.date)
+                        )}
+                      </td>
+                      <td>
+                        {booking.time_slot_details &&
+                          `${formatTime(booking.time_slot_details.start_time)} - ${formatTime(booking.time_slot_details.end_time)}`
+                        }
+                      </td>
+                      <td className="purpose-cell">{booking.purpose}</td>
+                      <td>
+                        <span className={`badge badge-${booking.status.toLowerCase()}`}>
+                          {booking.status}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`badge ${priorityBadge[booking.priority]}`}>
+                          {booking.priority}
+                        </span>
+                      </td>
+                      <td>{booking.participants_count}</td>
+                      <td>
+                        <div className="action-buttons">
+                          {booking.status === 'PENDING' && (
+                            <>
+                              <button
+                                className="btn btn-sm btn-success"
+                                onClick={() => handleApprove(booking.id)}
+                                title="Approve"
+                              >
+                                ✓
+                              </button>
+                              <button
+                                className="btn btn-sm btn-danger"
+                                onClick={() => handleReject(booking.id)}
+                                title="Reject"
+                              >
+                                ✗
+                              </button>
+                            </>
+                          )}
 
-      {success && (
-        <div className="alert alert-success">
-          {success}
-          <button onClick={() => setSuccess(null)} className="alert-close">×</button>
-        </div>
-      )}
+                          {['APPROVED', 'CONFIRMED'].includes(booking.status) && (
+                            <button
+                              className="btn btn-sm btn-warning"
+                              onClick={() => handleCancel(booking.id)}
+                              title="Cancel"
+                            >
+                              Cancel
+                            </button>
+                          )}
 
-      {/* Filters */}
-      <div className="filters">
-        <select
-          name="status"
-          value={filters.status}
-          onChange={handleFilterChange}
-          className="filter-select"
-        >
-          {statusOptions.map(option => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+                          {booking.status === 'CANCELLED' && (
+                            <button
+                              className="btn btn-sm btn-danger"
+                              onClick={() => handleDelete(booking.id)}
+                              title="Delete"
+                            >
+                              Delete
+                            </button>
+                          )}
 
-        <input
-          type="date"
-          name="start_date"
-          value={filters.start_date}
-          onChange={handleFilterChange}
-          className="filter-input"
-          placeholder="Start Date"
-        />
+                          {!booking.conflict_override && (
+                            <button
+                              className="btn btn-sm btn-secondary"
+                              onClick={() => openOverrideModal(booking)}
+                              title="Override Conflict"
+                            >
+                              Override
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
-        <input
-          type="date"
-          name="end_date"
-          value={filters.end_date}
-          onChange={handleFilterChange}
-          className="filter-input"
-          placeholder="End Date"
-        />
-
-        <select
-          name="is_recurring"
-          value={filters.is_recurring}
-          onChange={handleFilterChange}
-          className="filter-select"
-        >
-          <option value="">All Bookings</option>
-          <option value="true">Recurring Only</option>
-          <option value="false">One-time Only</option>
-        </select>
-      </div>
-
-      {/* Bookings Table */}
-      {loading ? (
-        <div className="loading">Loading bookings...</div>
-      ) : bookings.length === 0 ? (
-        <div className="no-data">No bookings found</div>
-      ) : (
-        <div className="table-container">
-          <table className="bookings-table">
-            <thead>
-              <tr>
-                <th>
-                  <input
-                    type="checkbox"
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setSelectedBookings(bookings.map(b => b.id));
-                      } else {
-                        setSelectedBookings([]);
-                      }
-                    }}
-                    checked={selectedBookings.length === bookings.length && bookings.length > 0}
-                  />
-                </th>
-                <th>Room</th>
-                <th>User</th>
-                <th>Date</th>
-                <th>Time</th>
-                <th>Purpose</th>
-                <th>Status</th>
-                <th>Priority</th>
-                <th>Participants</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {bookings.map(booking => (
-                <tr key={booking.id} className={selectedBookings.includes(booking.id) ? 'selected' : ''}>
-                  <td>
-                    <input
-                      type="checkbox"
-                      checked={selectedBookings.includes(booking.id)}
-                      onChange={() => toggleBookingSelection(booking.id)}
-                    />
-                  </td>
-                  <td>
-                    <strong>{booking.room_name}</strong>
-                    {booking.is_recurring && !booking.parent_booking && (
-                      <span className="badge badge-info ml-1" title="This is a recurring booking - approval will apply to all instances">
-                        📅 Recurring Series
-                      </span>
-                    )}
-                    {booking.is_recurring && booking.parent_booking && (
-                      <span className="badge badge-light ml-1" title="This is an instance of a recurring booking">
-                        📅 Recurring Instance
-                      </span>
-                    )}
-                  </td>
-                  <td>{booking.user_name || booking.user_email}</td>
-                  <td>
-                    {booking.is_recurring && !booking.parent_booking && booking.recurrence_end_date ? (
-                      <>
-                        {formatDate(booking.date)} - {formatDate(booking.recurrence_end_date)}
-                        <br />
-                        <small style={{ color: '#666' }}>
-                          {booking.recurrence_pattern === 'DAILY' && 'Daily'}
-                          {booking.recurrence_pattern === 'WEEKLY' && 'Weekly'}
-                          {booking.recurrence_pattern === 'BIWEEKLY' && 'Bi-weekly'}
-                          {booking.recurrence_pattern === 'MONTHLY' && 'Monthly'}
-                        </small>
-                      </>
-                    ) : (
-                      formatDate(booking.date)
-                    )}
-                  </td>
-                  <td>
-                    {booking.time_slot_details &&
-                      `${formatTime(booking.time_slot_details.start_time)} - ${formatTime(booking.time_slot_details.end_time)}`
-                    }
-                  </td>
-                  <td className="purpose-cell">{booking.purpose}</td>
-                  <td>
-                    <span className={`badge badge-${booking.status.toLowerCase()}`}>
-                      {booking.status}
-                    </span>
-                  </td>
-                  <td>
-                    <span className={`badge ${priorityBadge[booking.priority]}`}>
-                      {booking.priority}
-                    </span>
-                  </td>
-                  <td>{booking.participants_count}</td>
-                  <td>
-                    <div className="action-buttons">
-                      {booking.status === 'PENDING' && (
-                        <>
-                          <button
-                            className="btn btn-sm btn-success"
-                            onClick={() => handleApprove(booking.id)}
-                            title="Approve"
-                          >
-                            ✓
-                          </button>
-                          <button
-                            className="btn btn-sm btn-danger"
-                            onClick={() => handleReject(booking.id)}
-                            title="Reject"
-                          >
-                            ✗
-                          </button>
-                        </>
-                      )}
-                      
-                      {['APPROVED', 'CONFIRMED'].includes(booking.status) && (
-                        <button
-                          className="btn btn-sm btn-warning"
-                          onClick={() => handleCancel(booking.id)}
-                          title="Cancel"
-                        >
-                          Cancel
-                        </button>
-                      )}
-
-                      {booking.status === 'CANCELLED' && (
-                        <button
-                          className="btn btn-sm btn-danger"
-                          onClick={() => handleDelete(booking.id)}
-                          title="Delete"
-                        >
-                          Delete
-                        </button>
-                      )}
-
-                      {!booking.conflict_override && (
-                        <button
-                          className="btn btn-sm btn-secondary"
-                          onClick={() => openOverrideModal(booking)}
-                          title="Override Conflict"
-                        >
-                          Override
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+            <div className="pagination-controls">
+              <div className="pagination-summary">
+                Showing {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, totalBookings)} of {totalBookings}
+              </div>
+              <div className="pagination-buttons">
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                >
+                  Previous
+                </button>
+                <span className="page-indicator">Page {currentPage} of {totalPages}</span>
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage >= totalPages}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          </>
+        )}
 
       {/* Override Modal */}
       {showOverrideModal && (

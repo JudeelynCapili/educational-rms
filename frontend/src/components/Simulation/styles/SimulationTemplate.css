@@ -104,6 +104,21 @@
   gap: 0.6rem;
 }
 
+.timeline-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.timeline-metric-select {
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 0.45rem 0.65rem;
+  font-size: 0.85rem;
+  color: #1f2937;
+  background: #fff;
+}
+
 .cartoon-speed-select {
   border: 1px solid #cbd5e1;
   border-radius: 6px;
@@ -115,7 +130,7 @@
 
 .cartoon-stage {
   padding: 1.2rem 1.4rem 1.4rem;
-  background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+  background: radial-gradient(circle at top right, #dbeafe 0%, #f8fafc 48%, #eef2ff 100%);
   border-radius: 0 0 12px 12px;
 }
 
@@ -127,6 +142,225 @@
   color: #334155;
   font-size: 0.85rem;
   font-weight: 700;
+}
+
+.flow-sim-map {
+  position: relative;
+  margin-bottom: 1rem;
+  border: 1px solid #dbeafe;
+  border-radius: 12px;
+  background:
+    radial-gradient(circle at 80% 20%, rgba(59, 130, 246, 0.15), transparent 35%),
+    linear-gradient(135deg, #ffffff 0%, #e0f2fe 100%);
+  height: 170px;
+  overflow: hidden;
+}
+
+.flow-sim-map::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(30, 64, 175, 0.04) 0,
+    rgba(30, 64, 175, 0.04) 1px,
+    transparent 1px,
+    transparent 28px
+  );
+  pointer-events: none;
+}
+
+.flow-sim-map::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent 0%, rgba(255, 255, 255, 0.45) 50%, transparent 100%);
+  transform: translateX(-110%);
+  animation: scanSweep 3.4s linear infinite;
+  pointer-events: none;
+}
+
+.flow-node {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  border-radius: 999px;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #0f172a;
+  z-index: 2;
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  animation: nodePulse 1.9s ease-in-out infinite;
+}
+
+.node-entry {
+  left: 8px;
+}
+
+.node-service {
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.node-exit {
+  right: 8px;
+}
+
+.flow-route {
+  position: absolute;
+  height: 2px;
+  background: linear-gradient(90deg, #93c5fd 0%, #1d4ed8 100%);
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0.85;
+  background-size: 24px 100%;
+  animation: routeFlow 0.9s linear infinite;
+}
+
+.route-a {
+  left: 64px;
+  width: calc(50% - 94px);
+}
+
+.route-b {
+  left: calc(50% + 28px);
+  width: calc(50% - 92px);
+}
+
+.flow-branch-trunk {
+  position: absolute;
+  left: calc(50% + 6px);
+  top: 18%;
+  width: 2px;
+  height: 64%;
+  background: linear-gradient(180deg, rgba(37, 99, 235, 0.2) 0%, rgba(29, 78, 216, 0.85) 50%, rgba(37, 99, 235, 0.2) 100%);
+  z-index: 1;
+  animation: trunkPulse 1.2s ease-in-out infinite;
+}
+
+.flow-route-room {
+  position: absolute;
+  left: calc(50% + 6px);
+  width: calc(31% - 10px);
+  height: 2px;
+  background: linear-gradient(90deg, rgba(30, 64, 175, 0.55) 0%, rgba(59, 130, 246, 0.85) 100%);
+  z-index: 1;
+  animation: routeFlow 0.85s linear infinite;
+}
+
+.flow-room-node {
+  position: absolute;
+  left: 82%;
+  transform: translateY(-50%);
+  min-width: 88px;
+  border-radius: 10px;
+  padding: 0.25rem 0.42rem;
+  border: 1px solid #bfdbfe;
+  background: rgba(255, 255, 255, 0.88);
+  z-index: 2;
+  display: grid;
+  gap: 0.12rem;
+}
+
+.flow-room-name {
+  font-size: 0.63rem;
+  line-height: 1;
+  font-weight: 700;
+  color: #1e3a8a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.flow-room-load {
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: #334155;
+}
+
+.flow-room-node.room-pressure-low {
+  border-color: #86efac;
+  background: rgba(220, 252, 231, 0.92);
+}
+
+.flow-room-node.room-pressure-moderate {
+  border-color: #fde68a;
+  background: rgba(254, 249, 195, 0.94);
+}
+
+.flow-room-node.room-pressure-high {
+  border-color: #fdba74;
+  background: rgba(255, 237, 213, 0.95);
+}
+
+.flow-room-node.room-pressure-critical {
+  border-color: #fca5a5;
+  background: rgba(254, 226, 226, 0.96);
+}
+
+.flow-agent {
+  position: absolute;
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  z-index: 3;
+  opacity: 0;
+}
+
+.flow-agent::before {
+  content: '';
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  left: 3px;
+  top: -3px;
+  background: currentColor;
+  opacity: 0.8;
+}
+
+.flow-agent.intake {
+  background: #f59e0b;
+  color: #d97706;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.22);
+  animation-name: moveEntryToService;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+.flow-agent.service {
+  background: #10b981;
+  color: #059669;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+  animation-name: moveServiceToExit;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+.flow-agent.branch {
+  left: calc(50% + 24px);
+  top: calc(50% - 3px);
+  background: #0ea5e9;
+  color: #0369a1;
+  box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.2);
+  animation-name: moveServiceToRoom;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+.flow-agent.lane-0 {
+  top: calc(50% - 22px);
+}
+
+.flow-agent.lane-1 {
+  top: calc(50% - 4px);
+}
+
+.flow-agent.lane-2 {
+  top: calc(50% + 14px);
 }
 
 .cartoon-lanes {
@@ -228,6 +462,102 @@
   font-weight: 700;
 }
 
+.sim-process-chart-wrap {
+  padding: 1rem 1.25rem 1.25rem;
+}
+
+.sim-process-axis-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #334155;
+  margin-bottom: 0.45rem;
+}
+
+.sim-process-chart {
+  display: grid;
+  grid-template-columns: 46px 1fr;
+  gap: 0.75rem;
+  min-height: 280px;
+}
+
+.sim-process-grid {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  color: #64748b;
+  font-size: 0.75rem;
+  padding-bottom: 1.2rem;
+}
+
+.sim-process-bars {
+  border-left: 1px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
+  background: repeating-linear-gradient(
+    to top,
+    #f8fafc 0,
+    #f8fafc 1px,
+    transparent 1px,
+    transparent 25%
+  );
+  padding: 0.7rem 0.45rem 0.95rem;
+  display: flex;
+  align-items: flex-end;
+  gap: 0.35rem;
+  overflow-x: auto;
+}
+
+.sim-process-bar-item {
+  min-width: 26px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.sim-process-bar {
+  position: relative;
+  width: 18px;
+  border-radius: 8px 8px 3px 3px;
+  transition: height 0.35s ease, filter 0.3s ease;
+  transform-origin: bottom center;
+  animation: barRise 0.55s ease both;
+}
+
+.sim-process-bar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 40%;
+  border-radius: 8px 8px 0 0;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0));
+}
+
+.sim-process-bar.active {
+  filter: brightness(1.08);
+  box-shadow: 0 0 0 2px rgba(30, 64, 175, 0.22);
+  animation: barRise 0.4s ease both, activeBarPulse 1.1s ease-in-out infinite;
+}
+
+.sim-process-label {
+  font-size: 0.72rem;
+  color: #475569;
+  font-weight: 600;
+}
+
+.sim-process-meta {
+  margin-top: 0.9rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0.45rem;
+  color: #475569;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
 @keyframes queueBop {
   0% { transform: translateY(0); }
   50% { transform: translateY(-2px); }
@@ -246,13 +576,163 @@
   100% { filter: brightness(1); }
 }
 
+@keyframes nodePulse {
+  0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.25); }
+  70% { box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+}
+
+@keyframes scanSweep {
+  0% { transform: translateX(-110%); }
+  100% { transform: translateX(110%); }
+}
+
+@keyframes routeFlow {
+  0% { background-position: 0 0; }
+  100% { background-position: 24px 0; }
+}
+
+@keyframes trunkPulse {
+  0% { opacity: 0.48; }
+  50% { opacity: 0.95; }
+  100% { opacity: 0.48; }
+}
+
+@keyframes moveEntryToService {
+  0% {
+    left: 54px;
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  8% {
+    opacity: 1;
+  }
+  92% {
+    opacity: 1;
+  }
+  100% {
+    left: calc(50% - 28px);
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+@keyframes moveServiceToExit {
+  0% {
+    left: calc(50% + 28px);
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  10% {
+    opacity: 1;
+  }
+  92% {
+    opacity: 1;
+  }
+  100% {
+    left: calc(100% - 58px);
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+@keyframes moveServiceToRoom {
+  0% {
+    left: calc(50% + 24px);
+    top: calc(50% - 3px);
+    opacity: 0;
+    transform: scale(0.78);
+  }
+  15% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    left: calc(82% - 12px);
+    top: var(--target-y);
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+@keyframes barRise {
+  from {
+    transform: scaleY(0.4);
+    opacity: 0.45;
+  }
+  to {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+@keyframes activeBarPulse {
+  0% { filter: brightness(1.05); }
+  50% { filter: brightness(1.2); }
+  100% { filter: brightness(1.05); }
+}
+
 @media (max-width: 640px) {
   .room-sim-grid {
     grid-template-columns: 1fr;
     padding: 1rem;
   }
 
+  .flow-sim-map {
+    height: 150px;
+  }
+
+  .flow-node {
+    font-size: 0.66rem;
+    padding: 0.3rem 0.48rem;
+  }
+
+  .flow-agent {
+    width: 8px;
+    height: 8px;
+  }
+
+  .flow-room-node {
+    min-width: 70px;
+    left: 80%;
+    padding: 0.2rem 0.3rem;
+  }
+
+  .flow-room-name,
+  .flow-room-load {
+    font-size: 0.55rem;
+  }
+
+  .flow-route-room {
+    width: calc(28% - 8px);
+  }
+
   .cartoon-lanes {
     grid-template-columns: 1fr;
+  }
+
+  .timeline-toolbar {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .sim-process-chart-wrap {
+    padding: 0.9rem 0.9rem 1rem;
+  }
+
+  .sim-process-chart {
+    grid-template-columns: 36px 1fr;
+    min-height: 220px;
+  }
+
+  .sim-process-bar-item {
+    min-width: 22px;
+  }
+
+  .sim-process-bar {
+    width: 14px;
   }
 }

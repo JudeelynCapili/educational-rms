@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from django.views.decorators.csrf import csrf_exempt
 from django.db.models import Q, Count
 from django.utils import timezone
+from django.core.cache import cache
 from datetime import timedelta
 from apps.scheduling.models import Booking, Room, TimeSlot, Waitlist
 from apps.simulation.models import SimulationResult
@@ -20,13 +21,13 @@ logger = logging.getLogger(__name__)
 @permission_classes([IsAuthenticated])
 def dashboard_stats(request):
     """Get dashboard statistics for the current user."""
-    logger.info(f'=== DASHBOARD REQUEST ===')
-    logger.info(f'User: {request.user}')
-    logger.info(f'Auth: {request.auth}')
-    logger.info(f'Headers: {dict(request.headers)}')
-    logger.info(f'Authenticated: {request.user.is_authenticated}')
-    
     user = request.user
+    is_admin_like = user.role.upper() in ['ADMIN', 'FACULTY']
+
+    cache_key = f"dashboard_stats:{user.id}:{'admin' if is_admin_like else 'user'}"
+    cached_data = cache.get(cache_key)
+    if cached_data:
+        return Response(cached_data, status=status.HTTP_200_OK)
     
     # User info
     user_data = {
@@ -42,10 +43,12 @@ def dashboard_stats(request):
     
     # Get recent bookings (limit 5)
     # Admin/Faculty see all recent bookings, others see only their own
-    if user.role.upper() in ['ADMIN', 'FACULTY']:
-        recent_bookings = Booking.objects.all().select_related('room', 'time_slot', 'user').order_by('-created_at')[:5]
-    else:
-        recent_bookings = Booking.objects.filter(user=user).select_related('room', 'time_slot').order_by('-created_at')[:5]
+    booking_scope = Booking.objects.all() if is_admin_like else Booking.objects.filter(user=user)
+
+    recent_bookings = booking_scope.select_related('room', 'time_slot', 'user').only(
+        'id', 'room__name', 'time_slot__start_time', 'time_slot__end_time',
+        'date', 'status', 'purpose', 'user__first_name', 'user__last_name', 'user__username'
+    ).order_by('-created_at')[:5]
     
     bookings_data = [
         {
@@ -62,28 +65,19 @@ def dashboard_stats(request):
     
     # Get booking stats
     # Admin/Faculty see system-wide stats, others see only their own
-    if user.role.upper() in ['ADMIN', 'FACULTY']:
-        booking_stats = {
-            'total_bookings': Booking.objects.count(),
-            'confirmed_bookings': Booking.objects.filter(status='CONFIRMED').count(),
-            'pending_bookings': Booking.objects.filter(status='PENDING').count(),
-            'approved_bookings': Booking.objects.filter(status='APPROVED').count(),
-            'cancelled_bookings': Booking.objects.filter(status='CANCELLED').count(),
-            'rejected_bookings': Booking.objects.filter(status='REJECTED').count(),
-        }
-    else:
-        booking_stats = {
-            'total_bookings': Booking.objects.filter(user=user).count(),
-            'confirmed_bookings': Booking.objects.filter(user=user, status='CONFIRMED').count(),
-            'pending_bookings': Booking.objects.filter(user=user, status='PENDING').count(),
-            'approved_bookings': Booking.objects.filter(user=user, status='APPROVED').count(),
-            'cancelled_bookings': Booking.objects.filter(user=user, status='CANCELLED').count(),
-            'rejected_bookings': Booking.objects.filter(user=user, status='REJECTED').count(),
-        }
+    booking_aggregate = booking_scope.aggregate(
+        total_bookings=Count('id'),
+        confirmed_bookings=Count('id', filter=Q(status='CONFIRMED')),
+        pending_bookings=Count('id', filter=Q(status='PENDING')),
+        approved_bookings=Count('id', filter=Q(status='APPROVED')),
+        cancelled_bookings=Count('id', filter=Q(status='CANCELLED')),
+        rejected_bookings=Count('id', filter=Q(status='REJECTED')),
+    )
+    booking_stats = {key: int(value or 0) for key, value in booking_aggregate.items()}
     
     # Get simulation stats (if user has run simulations)
     simulation_stats = {
-        'total_simulations': SimulationResult.objects.count(),
+        'total_simulations': SimulationResult.objects.only('id').count(),
         'latest_simulation': None
     }
     
@@ -96,29 +90,39 @@ def dashboard_stats(request):
     
     # Admin-specific scheduling stats
     scheduling_stats = None
-    if user.role.upper() in ['ADMIN', 'FACULTY']:
+    if is_admin_like:
         today = timezone.now().date()
         week_from_now = today + timedelta(days=7)
+
+        scheduling_aggregate = Booking.objects.aggregate(
+            pending_approvals=Count('id', filter=Q(status='PENDING')),
+            upcoming_bookings=Count(
+                'id',
+                filter=Q(
+                    date__gte=today,
+                    date__lte=week_from_now,
+                    status__in=['APPROVED', 'CONFIRMED']
+                )
+            ),
+            conflicts_today=Count('id', filter=Q(date=today, conflict_override=True)),
+        )
         
         scheduling_stats = {
-            'pending_approvals': Booking.objects.filter(status='PENDING').count(),
+            'pending_approvals': int(scheduling_aggregate.get('pending_approvals') or 0),
             'total_rooms': Room.objects.filter(is_active=True).count(),
             'active_time_slots': TimeSlot.objects.filter(is_active=True).count(),
             'waitlist_entries': Waitlist.objects.filter(is_fulfilled=False).count(),
-            'upcoming_bookings': Booking.objects.filter(
-                date__gte=today,
-                date__lte=week_from_now,
-                status__in=['APPROVED', 'CONFIRMED']
-            ).count(),
-            'conflicts_today': Booking.objects.filter(
-                date=today,
-                conflict_override=True
-            ).count(),
+            'upcoming_bookings': int(scheduling_aggregate.get('upcoming_bookings') or 0),
+            'conflicts_today': int(scheduling_aggregate.get('conflicts_today') or 0),
         }
         
         # Get pending booking requests for quick approval
         pending_requests = Booking.objects.filter(status='PENDING').select_related(
             'user', 'room', 'time_slot'
+        ).only(
+            'id', 'user__first_name', 'user__last_name', 'user__username',
+            'room__name', 'date', 'time_slot__start_time', 'time_slot__end_time',
+            'purpose', 'priority', 'created_at'
         ).order_by('-created_at')[:5]
         
         scheduling_stats['pending_requests'] = [
@@ -145,5 +149,7 @@ def dashboard_stats(request):
     
     if scheduling_stats:
         response_data['scheduling_stats'] = scheduling_stats
+
+    cache.set(cache_key, response_data, timeout=30)
     
     return Response(response_data, status=status.HTTP_200_OK)
