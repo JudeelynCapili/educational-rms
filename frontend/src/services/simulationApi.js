@@ -20,9 +20,13 @@ export const getSimulationResults = async (id) => {
   return response.data;
 };
 
-export const getSimulationAuditLogs = async (limit = 100) => {
+export const getSimulationAuditLogs = async (limit = 100, options = {}) => {
+  const params = { limit };
+  if (options.simulationType) {
+    params.simulation_type = options.simulationType;
+  }
   const response = await api.get('/simulation/audit_logs/', {
-    params: { limit },
+    params,
   });
   return response.data;
 };
@@ -38,9 +42,16 @@ export const getSimulationHistory = async (limit = 50, options = {}) => {
   return response.data;
 };
 
-export const getSimulationBackup = async (includeRaw = false) => {
+export const getSimulationBackup = async (includeRaw = false, auditLimit = 5, options = {}) => {
+  const params = {
+    include_raw: includeRaw ? 1 : 0,
+    audit_limit: auditLimit,
+  };
+  if (options.simulationType) {
+    params.simulation_type = options.simulationType;
+  }
   const response = await api.get('/simulation/backup/', {
-    params: { include_raw: includeRaw ? 1 : 0 },
+    params,
   });
   return response.data;
 };
