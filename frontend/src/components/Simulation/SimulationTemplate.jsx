@@ -6,11 +6,13 @@ import {
   FiDownload,
   FiBarChart2,
   FiAlertTriangle,
+  FiClock,
 } from 'react-icons/fi';
 import '../Modeling/styles/ModelingModule.css';
 import './styles/SimulationTemplate.css';
 import {
   createSimulationScenario,
+  getSimulationHistory,
   getSimulationSystemSnapshot,
   runSimulationScenario,
 } from '../../services/simulationApi';
@@ -24,6 +26,8 @@ const SimulationTemplate = ({ title, description, simulationType }) => {
   const [playbackIndex, setPlaybackIndex] = useState(0);
   const [isPlaybackActive, setIsPlaybackActive] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [historyRuns, setHistoryRuns] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [simulationParams, setSimulationParams] = useState({
     lookbackDays: 14,
     simulationHours: 8,
@@ -40,7 +44,20 @@ const SimulationTemplate = ({ title, description, simulationType }) => {
 
   useEffect(() => {
     loadSystemSnapshot();
+    loadSimulationHistory();
   }, []);
+
+  const loadSimulationHistory = async () => {
+    setHistoryLoading(true);
+    try {
+      const runs = await getSimulationHistory(60);
+      setHistoryRuns(Array.isArray(runs) ? runs : []);
+    } catch (historyError) {
+      console.error('Failed to load simulation history:', historyError);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
 
   const loadSystemSnapshot = async () => {
     setIsLoading(true);
@@ -249,6 +266,7 @@ const SimulationTemplate = ({ title, description, simulationType }) => {
         timeline,
         roomLoad,
       });
+      loadSimulationHistory();
     } catch (error) {
       const msg = error?.response?.data?.error || 'Simulation run failed. Please review your parameters.';
       setError(msg);
@@ -278,6 +296,60 @@ const SimulationTemplate = ({ title, description, simulationType }) => {
     anchor.click();
     anchor.remove();
     URL.revokeObjectURL(url);
+  };
+
+  const exportHistoryRun = (run) => {
+    const payload = {
+      scenario: {
+        id: run.scenario,
+        name: run.scenario_name,
+        description: run.scenario_description,
+        created_at: run.scenario_created_at,
+        parameters: run.parameters,
+      },
+      run: {
+        id: run.id,
+        run_date: run.run_date,
+        metrics: run.metrics,
+        raw_data: run.raw_data,
+      },
+    };
+
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `simulation-run-${run.id}.json`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const loadHistoryRun = (run) => {
+    const result = {
+      id: run.id,
+      scenario: run.scenario,
+      run_date: run.run_date,
+      metrics: run.metrics || {},
+      raw_data: run.raw_data || {},
+    };
+
+    const timeline = buildTimelineRows(result);
+    const roomLoad = buildRoomVisualization(result.metrics || {}, run.parameters || {});
+
+    setSimData({
+      scenario: {
+        id: run.scenario,
+        name: run.scenario_name,
+        description: run.scenario_description,
+        created_at: run.scenario_created_at,
+        parameters: run.parameters || {},
+      },
+      result,
+      timeline,
+      roomLoad,
+    });
   };
 
   const rooms = snapshot?.rooms || [];
@@ -470,6 +542,50 @@ const SimulationTemplate = ({ title, description, simulationType }) => {
             <FiPlay /> {isRunning ? 'Running...' : 'Run Simulation'}
           </button>
         </div>
+      </div>
+
+      <div className="card">
+        <div className="card-header">
+          <h2><FiClock /> Simulation History</h2>
+          <button className="btn-export" type="button" onClick={loadSimulationHistory} disabled={historyLoading}>
+            <FiRefreshCw /> {historyLoading ? 'Refreshing...' : 'Refresh History'}
+          </button>
+        </div>
+        {!historyRuns.length ? (
+          <p className="empty-state">No saved simulation runs yet. Run a simulation to build history.</p>
+        ) : (
+          <table className="timeline-table">
+            <thead>
+              <tr>
+                <th>Run Date</th>
+                <th>Scenario</th>
+                <th>Utilization</th>
+                <th>Avg Wait</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {historyRuns.map((run) => (
+                <tr key={run.id}>
+                  <td>{new Date(run.run_date).toLocaleString()}</td>
+                  <td>{run.scenario_name}</td>
+                  <td className="value">{Number((run.metrics?.server_utilization || 0) * 100).toFixed(1)}%</td>
+                  <td className="value">{Number(run.metrics?.avg_waiting_time || 0).toFixed(2)}h</td>
+                  <td>
+                    <div className="cartoon-controls">
+                      <button className="btn-export" type="button" onClick={() => loadHistoryRun(run)}>
+                        Load
+                      </button>
+                      <button className="btn-export" type="button" onClick={() => exportHistoryRun(run)}>
+                        <FiDownload /> Export
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
 
       {simData && (

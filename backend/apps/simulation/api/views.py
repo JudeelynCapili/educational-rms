@@ -329,3 +329,33 @@ class SimulationViewSet(viewsets.ModelViewSet):
         results = scenario.simulationresult_set.all()
         serializer = SimulationResultSerializer(results, many=True)
         return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def history(self, request):
+        """Get recent simulation runs across scenarios."""
+        limit = request.query_params.get('limit', 50)
+        try:
+            limit = int(limit)
+        except (TypeError, ValueError):
+            return Response({'error': 'limit must be an integer'}, status=status.HTTP_400_BAD_REQUEST)
+
+        limit = max(1, min(limit, 200))
+        runs = SimulationResult.objects.select_related('scenario').order_by('-run_date')[:limit]
+
+        payload = []
+        for run in runs:
+            scenario = run.scenario
+            payload.append({
+                'id': run.id,
+                'scenario': scenario.id,
+                'scenario_name': scenario.name,
+                'scenario_description': scenario.description,
+                'scenario_created_at': scenario.created_at,
+                'run_date': run.run_date,
+                'metrics': run.metrics,
+                'raw_data': run.raw_data,
+                'parameters': scenario.parameters,
+                'num_replications': scenario.num_replications,
+            })
+
+        return Response(payload)
