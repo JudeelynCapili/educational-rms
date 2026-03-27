@@ -4,7 +4,6 @@ import Login from '../features/auth/components/Login';
 import Register from '../features/auth/components/Register';
 import Dashboard from '../features/dashboard/Dashboard';
 import AdminScheduling from '../components/Admin/AdminScheduling/AdminScheduling';
-import CapacityAnalyzer from '../components/Admin/CapacityAnalyzer/CapacityAnalyzer';
 import BookingsVisualization from '../components/Bookings/BookingsVisualization';
 import MainLayout from '../components/Layout/MainLayout';
 import ProtectedRoute from './ProtectedRoute';
@@ -56,17 +55,6 @@ const AppRoutes = () => {
             <ProtectedRoute>
               <MainLayout userRole={user?.role}>
                 <AdminScheduling />
-              </MainLayout>
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/capacity"
-          element={
-            <ProtectedRoute>
-              <MainLayout userRole={user?.role}>
-                <CapacityAnalyzer />
               </MainLayout>
             </ProtectedRoute>
           }

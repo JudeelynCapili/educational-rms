@@ -66,14 +66,6 @@ const Sidebar = ({ userRole, onCollapsedChange, fullyHideOnCollapse = false }) =
       description: 'View and manage all resource bookings',
     },
     {
-      id: 'capacity',
-      label: 'Capacity Analysis',
-      icon: <FiBarChart2 />,
-      path: '/capacity',
-      available: isAdmin,
-      description: 'Monitor utilization and plan growth',
-    },
-    {
       id: 'modeling-simulation',
       label: 'Modeling & Simulation',
       icon: <FiActivity />,
