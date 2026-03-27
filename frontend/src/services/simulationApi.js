@@ -20,9 +20,14 @@ export const getSimulationResults = async (id) => {
   return response.data;
 };
 
-export const getSimulationHistory = async (limit = 50) => {
+export const getSimulationHistory = async (limit = 50, options = {}) => {
+  const params = { limit };
+  if (options.simulationType) {
+    params.simulation_type = options.simulationType;
+  }
+
   const response = await api.get('/simulation/history/', {
-    params: { limit },
+    params,
   });
   return response.data;
 };
