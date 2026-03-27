@@ -1,5 +1,5 @@
 import React from 'react';
-import './Modal.css';
+import './styles/Modal.css';
 import { stopPropagation } from './useModalUtils';
 
 const BaseModal = ({ isOpen, typeClass, icon, title, onClose, children, actions }) => {
@@ -25,3 +25,4 @@ const BaseModal = ({ isOpen, typeClass, icon, title, onClose, children, actions 
 };
 
 export default BaseModal;
+

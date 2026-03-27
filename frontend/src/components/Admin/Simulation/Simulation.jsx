@@ -4,7 +4,7 @@ import {
   runSimulationScenario,
   getSimulationSystemSnapshot,
 } from '../../../services/simulationApi';
-import './Simulation.css';
+import './styles/Simulation.css';
 
 const Simulation = () => {
   const [formData, setFormData] = useState({
@@ -437,3 +437,4 @@ const Simulation = () => {
 };
 
 export default Simulation;
+

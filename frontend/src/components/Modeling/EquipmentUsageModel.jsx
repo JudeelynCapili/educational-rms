@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FiTool, FiRefreshCw, FiDownload } from 'react-icons/fi';
-import './ModelingModule.css';
+import './styles/ModelingModule.css';
 import api from '../../services/api';
 
 const EquipmentUsageModel = () => {
@@ -203,3 +203,4 @@ const EquipmentUsageModel = () => {
 };
 
 export default EquipmentUsageModel;
+

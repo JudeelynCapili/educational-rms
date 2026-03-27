@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { getTypeClass, getIcon } from './useModalUtils';
 import BaseModal from './BaseModal';
-import './Modal.css';
+import './styles/Modal.css';
 
 const PromptModal = ({ title, label, placeholder, type = 'info', isOpen, onConfirm, onCancel, confirmText = 'OK', cancelText = 'Cancel', required = false }) => {
   const [input, setInput] = useState('');
@@ -56,3 +56,4 @@ const PromptModal = ({ title, label, placeholder, type = 'info', isOpen, onConfi
 };
 
 export default PromptModal;
+

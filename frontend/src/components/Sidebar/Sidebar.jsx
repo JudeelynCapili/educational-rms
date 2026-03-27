@@ -18,7 +18,7 @@ import {
   FiAlertCircle,
   FiSettings,
 } from 'react-icons/fi';
-import './Sidebar.css';
+import './styles/Sidebar.css';
 
 const Sidebar = ({ userRole, onCollapsedChange, fullyHideOnCollapse = false }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);

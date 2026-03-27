@@ -1,7 +1,7 @@
 import React from 'react';
 import { getTypeClass, getIcon } from './useModalUtils';
 import BaseModal from './BaseModal';
-import './Modal.css';
+import './styles/Modal.css';
 
 const ConfirmModal = ({ title, message, type = 'warning', isOpen, onConfirm, onCancel, confirmText = 'Confirm', cancelText = 'Cancel', isDangerous = false }) => {
   const typeClass = getTypeClass(type);
@@ -34,3 +34,4 @@ const ConfirmModal = ({ title, message, type = 'warning', isOpen, onConfirm, onC
 };
 
 export default ConfirmModal;
+

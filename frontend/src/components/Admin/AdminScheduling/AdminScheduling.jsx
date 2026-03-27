@@ -18,7 +18,7 @@ import {
   FiArrowRight,
   FiBookOpen,
 } from 'react-icons/fi';
-import './AdminScheduling.css';
+import './styles/AdminScheduling.css';
 
 const AdminScheduling = () => {
   const [activeTab, setActiveTab] = useState('calendar');
@@ -151,3 +151,4 @@ const AdminScheduling = () => {
 };
 
 export default AdminScheduling;
+

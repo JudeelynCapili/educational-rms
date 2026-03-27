@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FiTrendingUp, FiRefreshCw, FiDownload } from 'react-icons/fi';
-import './ModelingModule.css';
+import './styles/ModelingModule.css';
 import api from '../../services/api';
 
 const DemandForecasting = () => {
@@ -226,3 +226,4 @@ const DemandForecasting = () => {
 };
 
 export default DemandForecasting;
+

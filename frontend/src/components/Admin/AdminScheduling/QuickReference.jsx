@@ -1,5 +1,5 @@
 import React from 'react';
-import '../AdminScheduling/AdminScheduling.css';
+import '../AdminScheduling/styles/AdminScheduling.css';
 
 const QuickReference = ({ onClose }) => {
   const shortcuts = [
@@ -78,3 +78,4 @@ const QuickReference = ({ onClose }) => {
 };
 
 export default QuickReference;
+

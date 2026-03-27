@@ -4,7 +4,7 @@ import useAuth from '../../../hooks/useAuth';
 import { LoginRegisterSkeleton } from '../../../components/Skeleton/Skeleton';
 import { FaUser, FaIdBadge, FaEnvelope, FaLock, FaBuilding, FaCalendarAlt, FaShieldAlt, FaMobileAlt } from 'react-icons/fa';
 import { motion } from 'framer-motion';
-import './Register.css';
+import '../styles/Register.css';
 
 const Register = () => {
   const navigate = useNavigate();
@@ -325,3 +325,4 @@ const Register = () => {
 };
 
 export default Register;
+

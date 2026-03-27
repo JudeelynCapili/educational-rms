@@ -3,11 +3,11 @@ import {
   getBookings, approveBooking, rejectBooking, cancelBooking,
   overrideConflict, bulkCancelBookings, bulkDeleteBookings, deleteBooking
 } from '../../../services/schedulingApi';
-import QuickCreateBooking from '../../Dashboard/QuickCreateBooking';
+import QuickCreateBooking from '../../../features/dashboard/QuickCreateBooking';
 import PromptModal from '../../Common/Modal/PromptModal';
 import ConfirmModal from '../../Common/Modal/ConfirmModal';
 import AlertModal from '../../Common/Modal/AlertModal';
-import './BookingManagement.css';
+import './styles/BookingManagement.css';
 
 const BookingManagement = () => {
   const [bookings, setBookings] = useState([]);
@@ -685,3 +685,4 @@ const BookingManagement = () => {
 };
 
 export default BookingManagement;
+

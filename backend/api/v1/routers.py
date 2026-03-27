@@ -1,12 +1,12 @@
 from rest_framework.routers import DefaultRouter
-from apps.users.views import UserViewSet, UserProfileViewSet
-from apps.scheduling.views import (
+from apps.users.api.views import UserViewSet, UserProfileViewSet
+from apps.scheduling.api.viewsets import (
     BookingViewSet, RoomViewSet, TimeSlotViewSet,
     EquipmentViewSet, WaitlistViewSet
 )
-from apps.scheduling.equipment_config_views import EquipmentConfigViewSet
-from apps.simulation.views import SimulationViewSet
-from apps.simulation.capacity_analysis import CapacityAnalysisViewSet
+from apps.scheduling.api.equipment_config_viewsets import EquipmentConfigViewSet
+from apps.simulation.api.views import SimulationViewSet
+from apps.simulation.api.capacity_analysis import CapacityAnalysisViewSet
 
 router = DefaultRouter()
 

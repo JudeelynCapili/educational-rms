@@ -4,7 +4,7 @@ import useAuth from '../../../hooks/useAuth';
 import { LoginRegisterSkeleton } from '../../../components/Skeleton/Skeleton';
 import { FaEnvelope, FaLock, FaCalendarAlt, FaBullseye, FaChartBar } from 'react-icons/fa';
 import { motion } from 'framer-motion';
-import './Login.css';
+import '../styles/Login.css';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -173,3 +173,4 @@ const Login = () => {
 };
 
 export default Login;
+

@@ -1,11 +1,11 @@
 """URL configuration for scheduling app."""
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import (
+from .api.viewsets import (
     RoomViewSet, TimeSlotViewSet, BookingViewSet,
     EquipmentViewSet, WaitlistViewSet
 )
-from .equipment_config_views import EquipmentConfigViewSet
+from .api.equipment_config_viewsets import EquipmentConfigViewSet
 
 app_name = 'scheduling'
 
