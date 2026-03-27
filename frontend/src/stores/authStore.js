@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { authApi } from '../services/authApi';
 
-export const useAuthStore = create((set) => ({
+export const useAuthStore = create((set, get) => ({
   user: null,
   tokens: {
     access: null,
@@ -10,18 +10,20 @@ export const useAuthStore = create((set) => ({
   isLoading: false,
   error: null,
   isAuthenticated: false,
+  isInitializing: false,
+  hasInitialized: false,
   lastActivityTime: Date.now(), // Track last activity time
 
   // Initialize auth from localStorage
   initAuth: async () => {
+    if (get().isInitializing || get().hasInitialized) {
+      return;
+    }
+
+    set({ isInitializing: true });
+
     const access = localStorage.getItem('access_token');
     const refresh = localStorage.getItem('refresh_token');
-
-    console.log('initAuth: Checking localStorage for tokens', {
-      hasAccess: !!access,
-      hasRefresh: !!refresh,
-      accessLength: access?.length,
-    });
 
     if (access && refresh) {
       set({
@@ -30,32 +32,29 @@ export const useAuthStore = create((set) => ({
       });
 
       try {
-        console.log('initAuth: Calling getCurrentUser()...');
         const user = await authApi.getCurrentUser();
-        console.log('initAuth: Got user data:', user);
-        set({ user });
+        set({ user, hasInitialized: true, isInitializing: false });
       } catch (err) {
-        console.error('initAuth: Failed to get user, removing tokens:', err.response?.status, err.message);
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
         set({
           tokens: { access: null, refresh: null },
           isAuthenticated: false,
           user: null,
+          hasInitialized: true,
+          isInitializing: false,
         });
       }
     } else {
-      console.log('initAuth: No tokens in localStorage');
+      set({ hasInitialized: true, isInitializing: false });
     }
   },
 
   // Register new user
   register: async (userData) => {
     set({ isLoading: true, error: null });
-    console.log('Registering with data:', userData);
     try {
       const data = await authApi.register(userData);
-      console.log('Registration response:', data);
       localStorage.setItem('access_token', data.tokens.access);
       localStorage.setItem('refresh_token', data.tokens.refresh);
 
@@ -67,6 +66,7 @@ export const useAuthStore = create((set) => ({
         },
         isAuthenticated: true,
         isLoading: false,
+        hasInitialized: true,
       });
 
       return data;
@@ -117,6 +117,8 @@ export const useAuthStore = create((set) => ({
         },
         isAuthenticated: true,
         isLoading: false,
+        hasInitialized: true,
+        isInitializing: false,
       });
 
       return data;
@@ -156,6 +158,8 @@ export const useAuthStore = create((set) => ({
       tokens: { access: null, refresh: null },
       isAuthenticated: false,
       isLoading: false,
+      hasInitialized: true,
+      isInitializing: false,
     });
   },
 
