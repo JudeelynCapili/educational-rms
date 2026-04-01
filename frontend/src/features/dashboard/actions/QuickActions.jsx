@@ -10,7 +10,9 @@ import styles from './styles/QuickActions.module.css';
 
 const QuickActions = ({ onEditProfile, userRole, onBookingCreated }) => {
   const navigate = useNavigate();
-  const isAdmin = userRole === 'ADMIN' || userRole === 'FACULTY';
+  const normalizedRole = String(userRole || '').toUpperCase();
+  const isAdmin = normalizedRole === 'ADMIN' || normalizedRole === 'FACULTY';
+  const isAdminUser = normalizedRole === 'ADMIN';
   const { showCreateBooking, openModal, closeModal } = useBookingModal();
 
   const handleBookingCreated = () => {
@@ -26,9 +28,11 @@ const QuickActions = ({ onEditProfile, userRole, onBookingCreated }) => {
         </div>
         <div className={styles.quickActions}>
           <NewBookingAction onClick={openModal} />
-          <RunSimulationAction onClick={() => {/* Add simulation logic here */}} />
-          <EditProfileAction onClick={onEditProfile} />
           {isAdmin && (
+            <RunSimulationAction onClick={() => navigate('/simulation/room-usage')} />
+          )}
+          <EditProfileAction onClick={onEditProfile} />
+          {isAdminUser && (
             <AdminSchedulingAction onClick={() => navigate('/admin-scheduling')} />
           )}
         </div>

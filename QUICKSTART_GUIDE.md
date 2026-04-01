@@ -59,12 +59,14 @@ npm run dev
 Use this when the frontend runs on a different device than the backend.
 
 1. Start the backend on all interfaces:
+
    ```bash
    cd backend
    python manage.py runserver 0.0.0.0:8000
    ```
 
 2. Update backend settings (in `.env` if used):
+
    ```
    ALLOWED_HOSTS=localhost,127.0.0.1,<YOUR_PC_IP>
    CORS_ALLOWED_ORIGINS=http://localhost:5173,http://<YOUR_PC_IP>:5173
@@ -77,6 +79,7 @@ Use this when the frontend runs on a different device than the backend.
      ```
 
 4. Start the frontend on all interfaces:
+
    ```bash
    cd frontend
    npm run dev -- --host 0.0.0.0
@@ -145,6 +148,7 @@ npm run lint
 ## API Testing with cURL
 
 ### Register User
+
 ```bash
 curl -X POST http://localhost:8000/api/v1/auth/users/register/ \
   -H "Content-Type: application/json" \
@@ -160,6 +164,7 @@ curl -X POST http://localhost:8000/api/v1/auth/users/register/ \
 ```
 
 ### Login
+
 ```bash
 curl -X POST http://localhost:8000/api/v1/auth/users/login/ \
   -H "Content-Type: application/json" \
@@ -170,6 +175,7 @@ curl -X POST http://localhost:8000/api/v1/auth/users/login/ \
 ```
 
 ### Get Current User
+
 ```bash
 curl -X GET http://localhost:8000/api/v1/auth/users/me/ \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN"

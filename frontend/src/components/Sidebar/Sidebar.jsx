@@ -17,6 +17,8 @@ import {
   FiZap,
   FiAlertCircle,
   FiSettings,
+  FiBell,
+  FiUser,
 } from 'react-icons/fi';
 import './styles/Sidebar.css';
 
@@ -26,11 +28,11 @@ const Sidebar = ({ userRole, onCollapsedChange, fullyHideOnCollapse = false }) =
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Check if user is admin - handle multiple role formats
-  const isAdmin = userRole === 'ADMIN' 
-    || userRole === 'FACULTY' 
-    || userRole?.toUpperCase?.() === 'ADMIN'
-    || userRole?.toUpperCase?.() === 'FACULTY';
+  const normalizedRole = String(userRole || '').toUpperCase();
+  const isAdminUser = normalizedRole === 'ADMIN';
+  const isFacultyUser = normalizedRole === 'FACULTY';
+  const isAdmin = isAdminUser || isFacultyUser;
+  const isStudent = !isAdmin;
 
   const handleToggleCollapse = () => {
     const newCollapsedState = !isCollapsed;
@@ -48,6 +50,56 @@ const Sidebar = ({ userRole, onCollapsedChange, fullyHideOnCollapse = false }) =
       path: '/dashboard',
       available: true,
     },
+    // Student Navigation Items (visible only to students)
+    {
+      id: 'student-bookings',
+      label: 'Bookings',
+      icon: <FiCalendar />,
+      path: '/student/bookings',
+      available: isStudent,
+      description: 'View your resource bookings',
+    },
+    {
+      id: 'student-schedule',
+      label: 'Schedule',
+      icon: <FiClock />,
+      path: '/schedule',
+      available: isStudent,
+      description: 'View your upcoming schedule',
+    },
+    {
+      id: 'student-equipment',
+      label: 'Equipment',
+      icon: <FiTool />,
+      path: '/equipment',
+      available: isStudent,
+      description: 'Browse available resources',
+    },
+    {
+      id: 'student-notifications',
+      label: 'Notifications',
+      icon: <FiBell />,
+      path: '/notifications',
+      available: isStudent,
+      description: 'View your notifications',
+    },
+    {
+      id: 'student-settings',
+      label: 'Settings',
+      icon: <FiSettings />,
+      path: '/settings',
+      available: isStudent,
+      description: 'Manage account and app settings',
+    },
+    {
+      id: 'student-profile',
+      label: 'Profile',
+      icon: <FiUser />,
+      path: '/profile',
+      available: isStudent,
+      description: 'Manage your profile settings',
+    },
+    // Admin Navigation Items (visible only to admin/faculty)
     {
       id: 'scheduling',
       label: 'Scheduling & Resources',

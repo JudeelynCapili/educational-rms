@@ -8,6 +8,13 @@ import BookingsVisualization from '../components/Bookings/BookingsVisualization'
 import MainLayout from '../components/Layout/MainLayout';
 import ProtectedRoute from './ProtectedRoute';
 import { useAuthStore } from '../stores/authStore';
+import BookingsPage from '../pages/Dashboard/BookingsPage';
+import PendingRequestsPage from '../pages/Dashboard/PendingRequestsPage';
+import SchedulePage from '../pages/Dashboard/SchedulePage';
+import EquipmentPage from '../pages/Dashboard/EquipmentPage';
+import NotificationsPage from '../pages/Dashboard/NotificationsPage';
+import SettingsPage from '../pages/Dashboard/SettingsPage';
+import ProfilePage from '../pages/Dashboard/ProfilePage';
 
 // Modeling Components
 import ResourceUtilization from '../components/Modeling/ResourceUtilization';
@@ -65,6 +72,83 @@ const AppRoutes = () => {
             <ProtectedRoute requiredRole={["ADMIN", "FACULTY"]}>
               <MainLayout userRole={user?.role}>
                 <BookingsVisualization />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/student/bookings"
+          element={
+            <ProtectedRoute>
+              <MainLayout userRole={user?.role}>
+                <BookingsPage />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin/pending-requests"
+          element={
+            <ProtectedRoute requiredRole={["ADMIN"]}>
+              <MainLayout userRole={user?.role}>
+                <PendingRequestsPage />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/schedule"
+          element={
+            <ProtectedRoute>
+              <MainLayout userRole={user?.role}>
+                <SchedulePage />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/equipment"
+          element={
+            <ProtectedRoute>
+              <MainLayout userRole={user?.role}>
+                <EquipmentPage />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/notifications"
+          element={
+            <ProtectedRoute>
+              <MainLayout userRole={user?.role}>
+                <NotificationsPage />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <MainLayout userRole={user?.role}>
+                <SettingsPage />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <MainLayout userRole={user?.role}>
+                <ProfilePage />
               </MainLayout>
             </ProtectedRoute>
           }
