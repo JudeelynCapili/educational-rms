@@ -15,6 +15,9 @@ import EquipmentPage from '../pages/Dashboard/EquipmentPage';
 import NotificationsPage from '../pages/Dashboard/NotificationsPage';
 import SettingsPage from '../pages/Dashboard/SettingsPage';
 import ProfilePage from '../pages/Dashboard/ProfilePage';
+import ReportsPage from '../pages/Dashboard/ReportsPage';
+import EquipmentRequestPage from '../pages/Dashboard/EquipmentRequestPage';
+import AdminEquipmentRequestsPage from '../pages/Dashboard/AdminEquipmentRequestsPage';
 
 // Modeling Components
 import ResourceUtilization from '../components/Modeling/ResourceUtilization';
@@ -122,6 +125,28 @@ const AppRoutes = () => {
         />
 
         <Route
+          path="/equipment/request"
+          element={
+            <ProtectedRoute>
+              <MainLayout userRole={user?.role}>
+                <EquipmentRequestPage />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin/equipment-requests"
+          element={
+            <ProtectedRoute requiredRole={["ADMIN"]}>
+              <MainLayout userRole={user?.role}>
+                <AdminEquipmentRequestsPage />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
           path="/notifications"
           element={
             <ProtectedRoute>
@@ -149,6 +174,17 @@ const AppRoutes = () => {
             <ProtectedRoute>
               <MainLayout userRole={user?.role}>
                 <ProfilePage />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/dashboard/reports"
+          element={
+            <ProtectedRoute requiredRole={["ADMIN", "FACULTY"]}>
+              <MainLayout userRole={user?.role}>
+                <ReportsPage />
               </MainLayout>
             </ProtectedRoute>
           }

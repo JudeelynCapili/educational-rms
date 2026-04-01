@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import QuickCreateBooking from './QuickCreateBooking';
 import NewBookingAction from './QuickActions/NewBookingAction';
+import RequestEquipmentAction from './QuickActions/RequestEquipmentAction';
 import RunSimulationAction from './QuickActions/RunSimulationAction';
 import EditProfileAction from './QuickActions/EditProfileAction';
 import AdminSchedulingAction from './QuickActions/AdminSchedulingAction';
@@ -28,6 +29,7 @@ const QuickActions = ({ onEditProfile, userRole, onBookingCreated }) => {
         </div>
         <div className={styles.quickActions}>
           <NewBookingAction onClick={openModal} />
+          <RequestEquipmentAction onClick={() => navigate('/equipment/request')} />
           {isAdmin && (
             <RunSimulationAction onClick={() => navigate('/simulation/room-usage')} />
           )}
