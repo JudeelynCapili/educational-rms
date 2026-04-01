@@ -83,7 +83,11 @@ const Dashboard = () => {
                 </>
               )}
               {isAdminUser && (
-                <AdminDashboardLayout bookingStats={booking_stats} schedulingStats={scheduling_stats || {}} />
+                <AdminDashboardLayout
+                  bookingStats={booking_stats}
+                  schedulingStats={scheduling_stats || {}}
+                  recentBookings={recent_bookings}
+                />
               )}
             </>
           )}

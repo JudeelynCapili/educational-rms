@@ -1,9 +1,11 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiHardDrive, FiLayers, FiActivity, FiUsers } from 'react-icons/fi';
+import NotificationPreview from './NotificationPreview';
+import EquipmentPreview from './EquipmentPreview';
 import styles from './styles/AdminDashboardLayout.module.css';
 
-const AdminDashboardLayout = ({ bookingStats = {}, schedulingStats = {} }) => {
+const AdminDashboardLayout = ({ bookingStats = {}, schedulingStats = {}, recentBookings = [] }) => {
   const navigate = useNavigate();
   const {
     total_bookings = 0,
@@ -105,6 +107,9 @@ const AdminDashboardLayout = ({ bookingStats = {}, schedulingStats = {} }) => {
           </div>
         ))}
       </div>
+
+      <NotificationPreview bookings={recentBookings} />
+      <EquipmentPreview />
 
       <div className={styles.managementSection}>
         <div className={styles.managementHeader}>
