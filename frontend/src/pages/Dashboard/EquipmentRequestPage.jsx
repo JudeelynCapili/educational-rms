@@ -6,6 +6,7 @@ import {
   extractEquipmentRequestDetails,
   isEquipmentRequestBooking,
 } from '../../features/equipmentRequest/equipmentRequestUtils';
+import BaseModal from '../../components/Common/Modal/BaseModal';
 import './LandingPages.css';
 import './EquipmentRequestPages.css';
 
@@ -39,6 +40,7 @@ const EquipmentRequestPage = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [submitMessage, setSubmitMessage] = useState('');
+  const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
 
   const [form, setForm] = useState({
     equipmentId: '',
@@ -177,6 +179,16 @@ const EquipmentRequestPage = () => {
     }
   }, [availableTimeSlots, form.timeSlotId]);
 
+  const openRequestModal = () => {
+    setSubmitMessage('');
+    setIsRequestModalOpen(true);
+  };
+
+  const closeRequestModal = () => {
+    if (submitting) return;
+    setIsRequestModalOpen(false);
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     setSubmitMessage('');
@@ -229,6 +241,7 @@ const EquipmentRequestPage = () => {
         remarks: '',
       });
       await loadData();
+      setIsRequestModalOpen(false);
     } catch (err) {
       const detail = err?.response?.data?.detail;
       setSubmitMessage(detail || 'Failed to submit equipment request.');
@@ -244,6 +257,9 @@ const EquipmentRequestPage = () => {
           <h1 className="landing-title">Request Equipment</h1>
           <p className="landing-subtitle">Submit a request for available equipment</p>
         </div>
+        <button type="button" className="btn btn-primary equipment-request-trigger" onClick={openRequestModal}>
+          New Equipment Request
+        </button>
       </div>
 
       {loading ? (
@@ -278,114 +294,7 @@ const EquipmentRequestPage = () => {
             )}
           </div>
 
-          <form className="equipment-request-form" onSubmit={handleSubmit}>
-            <div className="equipment-request-grid">
-              <label>
-                Equipment *
-                <select
-                  value={form.equipmentId}
-                  onChange={(e) => handleChange('equipmentId', e.target.value)}
-                  required
-                >
-                  <option value="">Select equipment</option>
-                  {availableEquipment.map((item) => (
-                    <option key={item.id} value={item.id}>{item.name}</option>
-                  ))}
-                </select>
-              </label>
-
-              <label>
-                Quantity *
-                <input
-                  type="number"
-                  min="1"
-                  value={form.quantity}
-                  onChange={(e) => handleChange('quantity', e.target.value)}
-                  required
-                />
-              </label>
-
-              <label>
-                Date Needed *
-                <input
-                  type="date"
-                  min={new Date().toISOString().split('T')[0]}
-                  value={form.date}
-                  onChange={(e) => handleChange('date', e.target.value)}
-                  required
-                />
-              </label>
-
-              <label>
-                Time Needed *
-                <select
-                  value={form.timeSlotId}
-                  onChange={(e) => handleChange('timeSlotId', e.target.value)}
-                  required
-                >
-                  <option value="">Select time slot</option>
-                  {availableTimeSlots.map((slot) => (
-                    <option key={slot.id} value={slot.id}>
-                      {slot.name} ({slot.start_time} - {slot.end_time})
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label>
-                Room *
-                <select
-                  value={form.roomId}
-                  onChange={(e) => handleChange('roomId', e.target.value)}
-                  required
-                  disabled={roomsLoading || !form.equipmentId}
-                >
-                  <option value="">
-                    {!form.equipmentId
-                      ? 'Select equipment first'
-                      : roomsLoading
-                        ? 'Loading rooms...'
-                        : rooms.length
-                          ? 'Select room with equipment'
-                          : 'No compatible rooms available'}
-                  </option>
-                  {rooms.map((room) => (
-                    <option key={room.id} value={room.id}>{formatRoomOptionLabel(room)}</option>
-                  ))}
-                </select>
-              </label>
-              {roomsError && (
-                <div className="form-error-message" style={{ gridColumn: '1 / -1', fontSize: '0.9em', color: '#d9534f', marginTop: '-8px' }}>
-                  {roomsError}
-                </div>
-              )}
-            </div>
-
-            <label>
-              Purpose / Reason *
-              <textarea
-                rows="3"
-                value={form.purpose}
-                onChange={(e) => handleChange('purpose', e.target.value)}
-                required
-              />
-            </label>
-
-            <label>
-              Remarks
-              <textarea
-                rows="2"
-                value={form.remarks}
-                onChange={(e) => handleChange('remarks', e.target.value)}
-              />
-            </label>
-
-            {submitMessage ? <p className="equipment-request-message">{submitMessage}</p> : null}
-
-            <button type="submit" className="btn btn-primary" disabled={submitting}>
-              {submitting ? 'Submitting...' : 'Submit Equipment Request'}
-            </button>
-          </form>
+          {!isRequestModalOpen && submitMessage ? <p className="equipment-request-message equipment-request-page-message">{submitMessage}</p> : null}
 
           <div className="landing-list equipment-request-history">
             <div className="landing-list-header">
@@ -419,6 +328,129 @@ const EquipmentRequestPage = () => {
               })
             )}
           </div>
+
+          <BaseModal
+            isOpen={isRequestModalOpen}
+            typeClass="modal-info equipment-request-modal-shell"
+            icon="🛠️"
+            title="Submit Equipment Request"
+            onClose={closeRequestModal}
+            actions={(
+              <>
+                <button type="button" className="modal-btn-secondary" onClick={closeRequestModal} disabled={submitting}>
+                  Cancel
+                </button>
+                <button type="submit" form="equipment-request-form" className="modal-btn-primary" disabled={submitting}>
+                  {submitting ? 'Submitting...' : 'Submit Equipment Request'}
+                </button>
+              </>
+            )}
+          >
+            <form id="equipment-request-form" className="equipment-request-form equipment-request-form--modal" onSubmit={handleSubmit}>
+              <div className="equipment-request-grid">
+                <label>
+                  Equipment *
+                  <select
+                    value={form.equipmentId}
+                    onChange={(e) => handleChange('equipmentId', e.target.value)}
+                    required
+                  >
+                    <option value="">Select equipment</option>
+                    {availableEquipment.map((item) => (
+                      <option key={item.id} value={item.id}>{item.name}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <label>
+                  Quantity *
+                  <input
+                    type="number"
+                    min="1"
+                    value={form.quantity}
+                    onChange={(e) => handleChange('quantity', e.target.value)}
+                    required
+                  />
+                </label>
+
+                <label>
+                  Date Needed *
+                  <input
+                    type="date"
+                    min={new Date().toISOString().split('T')[0]}
+                    value={form.date}
+                    onChange={(e) => handleChange('date', e.target.value)}
+                    required
+                  />
+                </label>
+
+                <label>
+                  Time Needed *
+                  <select
+                    value={form.timeSlotId}
+                    onChange={(e) => handleChange('timeSlotId', e.target.value)}
+                    required
+                  >
+                    <option value="">Select time slot</option>
+                    {availableTimeSlots.map((slot) => (
+                      <option key={slot.id} value={slot.id}>
+                        {slot.name} ({slot.start_time} - {slot.end_time})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label>
+                  Room *
+                  <select
+                    value={form.roomId}
+                    onChange={(e) => handleChange('roomId', e.target.value)}
+                    required
+                    disabled={roomsLoading || !form.equipmentId}
+                  >
+                    <option value="">
+                      {!form.equipmentId
+                        ? 'Select equipment first'
+                        : roomsLoading
+                          ? 'Loading rooms...'
+                          : rooms.length
+                            ? 'Select room with equipment'
+                            : 'No compatible rooms available'}
+                    </option>
+                    {rooms.map((room) => (
+                      <option key={room.id} value={room.id}>{formatRoomOptionLabel(room)}</option>
+                    ))}
+                  </select>
+                </label>
+                {roomsError && (
+                  <div className="form-error-message equipment-request-modal-error">
+                    {roomsError}
+                  </div>
+                )}
+              </div>
+
+              <label>
+                Purpose / Reason *
+                <textarea
+                  rows="3"
+                  value={form.purpose}
+                  onChange={(e) => handleChange('purpose', e.target.value)}
+                  required
+                />
+              </label>
+
+              <label>
+                Remarks
+                <textarea
+                  rows="2"
+                  value={form.remarks}
+                  onChange={(e) => handleChange('remarks', e.target.value)}
+                />
+              </label>
+
+              {submitMessage ? <p className="equipment-request-message">{submitMessage}</p> : null}
+            </form>
+          </BaseModal>
         </>
       )}
     </div>

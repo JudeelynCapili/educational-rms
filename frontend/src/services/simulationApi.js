@@ -64,3 +64,22 @@ export const getSimulationSystemSnapshot = async (startDate, endDate) => {
   const response = await api.get('/simulation/system_snapshot/', { params });
   return response.data;
 };
+
+export const getCurrentUtilization = async (date) => {
+  const params = {};
+  if (date) {
+    params.date = date;
+  }
+  const response = await api.get('/capacity/current_utilization/', { params });
+  return response.data;
+};
+
+export const getPeakHours = async (days = 14) => {
+  const response = await api.get('/capacity/peak_hours/', { params: { days } });
+  return response.data;
+};
+
+export const getConflictSummary = async (days = 120) => {
+  const response = await api.get('/capacity/conflict_summary/', { params: { days } });
+  return response.data;
+};

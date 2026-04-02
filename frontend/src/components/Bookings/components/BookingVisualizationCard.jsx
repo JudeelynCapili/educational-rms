@@ -8,7 +8,7 @@ import {
   getStatusBadgeClass,
 } from '../utils/bookingViewUtils';
 
-const BookingVisualizationCard = ({ booking }) => {
+const BookingVisualizationCard = ({ booking, onViewDetails }) => {
   return (
     <div className="booking-card">
       <div className="booking-header">
@@ -60,7 +60,9 @@ const BookingVisualizationCard = ({ booking }) => {
         >
           {booking.priority}
         </div>
-        <button className="btn-view">View Details</button>
+        <button className="btn-view" type="button" onClick={() => onViewDetails?.(booking)}>
+          View Details
+        </button>
       </div>
     </div>
   );

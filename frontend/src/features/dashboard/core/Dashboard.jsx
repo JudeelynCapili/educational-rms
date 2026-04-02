@@ -17,6 +17,7 @@ const MiniCalendar = lazy(() => import('../calendar/MiniCalendar'));
 const UpcomingSchedule = lazy(() => import('../sections/UpcomingSchedule'));
 const NotificationPreview = lazy(() => import('../sections/NotificationPreview'));
 const EquipmentPreview = lazy(() => import('../sections/EquipmentPreview'));
+const DecisionSupportPanel = lazy(() => import('../sections/DecisionSupportPanel'));
 const FacultyDashboardLayout = lazy(() => import('../sections/FacultyDashboardLayout'));
 const AdminDashboardLayout = lazy(() => import('../sections/AdminDashboardLayout'));
 
@@ -71,6 +72,8 @@ const Dashboard = () => {
             bookingStats={booking_stats}
             simulationStats={simulation_stats}
           />
+
+          <DecisionSupportPanel userRole={userData.role} showViewDetails />
 
           {/* Admin/Faculty Scheduling Stats - Only for admins/faculty */}
           {isAdmin && (

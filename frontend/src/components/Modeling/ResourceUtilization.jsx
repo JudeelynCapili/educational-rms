@@ -1,14 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { FiBarChart2, FiRefreshCw, FiDownload } from 'react-icons/fi';
 import './styles/ModelingModule.css';
 import api from '../../services/api';
+import { useAuthStore } from '../../stores/authStore';
+import DecisionSupportPanel from '../../features/dashboard/sections/DecisionSupportPanel';
+import { exportElementToPdf } from '../../utils/pdfExport';
 
 const ResourceUtilization = () => {
+  const { user } = useAuthStore();
+  const exportContainerRef = useRef(null);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [selectedResource, setSelectedResource] = useState('rooms');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().slice(0, 10));
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportNotice, setExportNotice] = useState('');
 
   useEffect(() => {
     fetchUtilizationData();
@@ -77,6 +84,23 @@ const ResourceUtilization = () => {
     }
   };
 
+  const handleExport = async () => {
+    setExportNotice('');
+    setIsExporting(true);
+
+    try {
+      await exportElementToPdf({
+        element: exportContainerRef.current,
+        fileName: `resource_utilization_${selectedDate}.pdf`,
+      });
+      setExportNotice('Resource utilization report downloaded successfully.');
+    } catch (err) {
+      setExportNotice('Failed to export resource utilization report. Please try again.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const getStatusColor = (status) => {
     switch(status) {
       case 'optimal': return '#10b981';
@@ -87,7 +111,7 @@ const ResourceUtilization = () => {
   };
 
   return (
-    <div className="modeling-container">
+    <div className="modeling-container" ref={exportContainerRef}>
       <div className="modeling-header">
         <div className="header-content">
           <h1>
@@ -116,11 +140,19 @@ const ResourceUtilization = () => {
         </div>
       </div>
 
+      <DecisionSupportPanel userRole={user?.role} />
+
       {error && (
         <div className="error-banner">
           <p>{error}</p>
         </div>
       )}
+
+      {exportNotice ? (
+        <div className="card" style={{ marginBottom: '1rem' }}>
+          <p style={{ margin: 0 }}>{exportNotice}</p>
+        </div>
+      ) : null}
 
       {data && (
         <div className="modeling-content">
@@ -163,8 +195,8 @@ const ResourceUtilization = () => {
           <div className="card">
             <div className="card-header">
               <h2>Resource Utilization Details</h2>
-              <button className="btn-export">
-                <FiDownload /> Export Report
+              <button className="btn-export" onClick={handleExport} disabled={isExporting || loading}>
+                <FiDownload /> {isExporting ? 'Exporting...' : 'Export Report'}
               </button>
             </div>
             <table className="utilization-table">

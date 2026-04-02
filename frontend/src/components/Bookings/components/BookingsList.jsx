@@ -2,7 +2,7 @@ import React from 'react';
 import { FiAlertCircle } from 'react-icons/fi';
 import BookingVisualizationCard from './BookingVisualizationCard';
 
-const BookingsList = ({ loading, bookings, filterStatus }) => {
+const BookingsList = ({ loading, bookings, filterStatus, onViewDetails }) => {
   if (loading) {
     return <div className="loading">Loading bookings...</div>;
   }
@@ -18,7 +18,7 @@ const BookingsList = ({ loading, bookings, filterStatus }) => {
   return (
     <div className="bookings-list">
       {bookings.map((booking) => (
-        <BookingVisualizationCard key={booking.id} booking={booking} />
+        <BookingVisualizationCard key={booking.id} booking={booking} onViewDetails={onViewDetails} />
       ))}
     </div>
   );

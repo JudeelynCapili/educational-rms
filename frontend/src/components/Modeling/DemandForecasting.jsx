@@ -1,13 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { FiTrendingUp, FiRefreshCw, FiDownload } from 'react-icons/fi';
 import './styles/ModelingModule.css';
 import api from '../../services/api';
+import { exportElementToPdf } from '../../utils/pdfExport';
 
 const DemandForecasting = () => {
+  const exportContainerRef = useRef(null);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [timeframe, setTimeframe] = useState('semester');
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportNotice, setExportNotice] = useState('');
 
   useEffect(() => {
     fetchForecastData();
@@ -87,8 +91,25 @@ const DemandForecasting = () => {
     }
   };
 
+  const handleExport = async () => {
+    setExportNotice('');
+    setIsExporting(true);
+
+    try {
+      await exportElementToPdf({
+        element: exportContainerRef.current,
+        fileName: `demand_forecast_${new Date().toISOString().slice(0, 10)}.pdf`,
+      });
+      setExportNotice('Demand forecast report downloaded successfully.');
+    } catch (err) {
+      setExportNotice('Failed to export demand forecast report. Please try again.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
-    <div className="modeling-container">
+    <div className="modeling-container" ref={exportContainerRef}>
       <div className="modeling-header">
         <div className="header-content">
           <h1>
@@ -106,6 +127,12 @@ const DemandForecasting = () => {
           <p>{error}</p>
         </div>
       )}
+
+      {exportNotice ? (
+        <div className="card" style={{ marginBottom: '1rem' }}>
+          <p style={{ margin: 0 }}>{exportNotice}</p>
+        </div>
+      ) : null}
 
       {data && (
         <div className="modeling-content">
@@ -148,8 +175,8 @@ const DemandForecasting = () => {
           <div className="card">
             <div className="card-header">
               <h2>Weekly Demand Forecast</h2>
-              <button className="btn-export">
-                <FiDownload /> Export
+              <button className="btn-export" onClick={handleExport} disabled={isExporting || loading}>
+                <FiDownload /> {isExporting ? 'Exporting...' : 'Export'}
               </button>
             </div>
             <table className="forecast-table">
