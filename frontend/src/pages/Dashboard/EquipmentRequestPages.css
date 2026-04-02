@@ -1,0 +1,49 @@
+.equipment-available-list {
+  margin-bottom: 1rem;
+}
+
+.equipment-request-form {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.equipment-request-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.75rem;
+}
+
+.equipment-request-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  color: #1e293b;
+  font-size: 0.88rem;
+  font-weight: 500;
+}
+
+.equipment-request-form input,
+.equipment-request-form select,
+.equipment-request-form textarea {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 0.5rem 0.6rem;
+  background: #fff;
+  color: #0f172a;
+}
+
+.equipment-request-message {
+  margin: 0;
+  font-size: 0.88rem;
+  color: #1e3a8a;
+}
+
+.equipment-request-history {
+  margin-top: 0.5rem;
+}
