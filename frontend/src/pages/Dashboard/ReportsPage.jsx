@@ -1,12 +1,14 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useAuthStore } from '../../stores/authStore';
-import { getReportsData, exportReport } from '../../services/reportsService';
+import { getReportsData } from '../../services/reportsService';
 import ReportsFilters from '../../components/Reports/ReportsFilters';
 import ReportsTabs from '../../components/Reports/ReportsTabs';
 import RoomUsageReport from '../../components/Reports/RoomUsageReport';
 import EquipmentUsageReport from '../../components/Reports/EquipmentUsageReport';
 import UserActivityReport from '../../components/Reports/UserActivityReport';
 import ExportButtons from '../../components/Reports/ExportButtons';
+import { exportReportsToExcel } from '../../utils/excelExport';
+import { exportElementToPdf } from '../../utils/pdfExport';
 import './ReportsPage.css';
 
 const initialFilters = {
@@ -21,6 +23,7 @@ const normalizeRole = (role) => String(role || '').toUpperCase();
 
 const ReportsPage = () => {
   const { user } = useAuthStore();
+  const exportContainerRef = useRef(null);
   const [activeTab, setActiveTab] = useState('room');
   const [filters, setFilters] = useState(initialFilters);
   const [reports, setReports] = useState({
@@ -96,12 +99,23 @@ const ReportsPage = () => {
 
     setIsExporting(true);
     try {
-      await exportReport({
-        reportTab: reportType,
-        format,
-        filters,
-      });
-      setExportNotice(`Export ${format.toUpperCase()} completed.`);
+      if (format === 'excel') {
+        await exportReportsToExcel({
+          activeTab: reportType,
+          reports,
+          filters,
+          filterOptions: reports.filterOptions,
+          canViewUserActivity,
+          fileName: `${reportType}_report_${new Date().toISOString().slice(0, 10)}.xlsx`,
+        });
+        setExportNotice('Export Excel completed.');
+      } else {
+        await exportElementToPdf({
+          element: exportContainerRef.current,
+          fileName: `${reportType}_report_${new Date().toISOString().slice(0, 10)}.pdf`,
+        });
+        setExportNotice('Export PDF completed.');
+      }
     } catch (error) {
       setExportNotice('Export failed. Please try again.');
     } finally {
@@ -127,7 +141,7 @@ const ReportsPage = () => {
   };
 
   return (
-    <div className="reports-page">
+    <div className="reports-page" ref={exportContainerRef}>
       <div className="reports-header">
         <div>
           <h1 className="reports-title">Reports</h1>
@@ -137,7 +151,7 @@ const ReportsPage = () => {
           activeTab={activeTab}
           onExport={handleExport}
           canExport={canExport}
-          exportDisabledReason="Export is controlled by backend role permissions"
+          exportDisabledReason="Export is available only to ADMIN and FACULTY users"
           isExporting={isExporting}
         />
       </div>

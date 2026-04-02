@@ -13,19 +13,19 @@ const ExportButtons = ({
         type="button"
         className="reports-export-btn"
         disabled={!canExport || isExporting}
-        title={!canExport ? exportDisabledReason : 'Export current report as PDF'}
-        onClick={() => onExport('pdf', activeTab)}
+        title={!canExport ? exportDisabledReason : 'Export current report as an Excel workbook'}
+        onClick={() => onExport('excel', activeTab)}
       >
-        Export PDF
+        Export Excel
       </button>
       <button
         type="button"
         className="reports-export-btn secondary"
         disabled={!canExport || isExporting}
-        title={!canExport ? exportDisabledReason : 'Export current report as Excel'}
-        onClick={() => onExport('excel', activeTab)}
+        title={!canExport ? exportDisabledReason : 'Export current report as print-ready PDF'}
+        onClick={() => onExport('pdf', activeTab)}
       >
-        Export Excel
+        Export Print PDF
       </button>
     </div>
   );

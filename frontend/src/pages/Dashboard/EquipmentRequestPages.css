@@ -2,6 +2,15 @@
   margin-bottom: 1rem;
 }
 
+.landing-header {
+  align-items: center;
+  gap: 1rem;
+}
+
+.equipment-request-trigger {
+  white-space: nowrap;
+}
+
 .equipment-request-form {
   border: 1px solid #e2e8f0;
   border-radius: 10px;
@@ -44,6 +53,35 @@
   color: #1e3a8a;
 }
 
+.equipment-request-page-message {
+  margin: 0.75rem 0 0;
+}
+
 .equipment-request-history {
   margin-top: 0.5rem;
+}
+
+.equipment-request-modal-shell {
+  max-width: 920px;
+  width: min(92vw, 920px);
+}
+
+.equipment-request-modal-shell .modal-body {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.equipment-request-form--modal {
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  margin-bottom: 0;
+  background: transparent;
+}
+
+.equipment-request-modal-error {
+  grid-column: 1 / -1;
+  margin-top: -0.25rem;
+  color: #d9534f;
+  font-size: 0.9rem;
 }

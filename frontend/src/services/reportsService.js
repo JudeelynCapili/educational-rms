@@ -398,17 +398,34 @@ const toBackendReportType = (tab) => {
 
 const toBackendFormat = (format) => (String(format).toLowerCase() === 'pdf' ? 'pdf' : 'excel');
 
+const triggerFileDownload = (blob, filename) => {
+  const blobUrl = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = blobUrl;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(blobUrl);
+};
+
 export const exportReport = async ({ reportTab, format, filters }) => {
+  const scopedFilters = {
+    ...filters,
+    roomId: reportTab === 'room' ? filters?.roomId : '',
+    equipmentId: reportTab === 'equipment' ? filters?.equipmentId : '',
+  };
+
   const params = {
     report_type: toBackendReportType(reportTab),
     export_format: toBackendFormat(format),
   };
 
-  if (filters?.startDate) params.start_date = filters.startDate;
-  if (filters?.endDate) params.end_date = filters.endDate;
-  if (filters?.status) params.status = normalizeStatus(filters.status);
-  if (filters?.roomId) params.room_id = filters.roomId;
-  if (filters?.equipmentId) params.equipment_id = filters.equipmentId;
+  if (scopedFilters?.startDate) params.start_date = scopedFilters.startDate;
+  if (scopedFilters?.endDate) params.end_date = scopedFilters.endDate;
+  if (scopedFilters?.status) params.status = normalizeStatus(scopedFilters.status);
+  if (scopedFilters?.roomId) params.room_id = scopedFilters.roomId;
+  if (scopedFilters?.equipmentId) params.equipment_id = scopedFilters.equipmentId;
 
   const response = await api.get('/reports/export/', {
     params,
@@ -420,17 +437,31 @@ export const exportReport = async ({ reportTab, format, filters }) => {
   const fallbackExtension = params.export_format === 'pdf' ? 'pdf' : 'csv';
   const filename = filenameMatch?.[1] || `${params.report_type}_report.${fallbackExtension}`;
 
-  const blobUrl = window.URL.createObjectURL(response.data);
-  const link = document.createElement('a');
-  link.href = blobUrl;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  window.URL.revokeObjectURL(blobUrl);
+  const blob = response.data instanceof Blob ? response.data : new Blob([response.data]);
+  triggerFileDownload(blob, filename);
+};
+
+export const exportCapacityCsv = async ({ date, days = 1, filenamePrefix = 'capacity_utilization' }) => {
+  const params = {};
+  if (date) params.date = date;
+  if (days) params.days = days;
+
+  const response = await api.get('/capacity/export_csv/', { params });
+  const csvContent = response?.data?.csv;
+
+  if (!csvContent) {
+    throw new Error('No CSV data returned from backend');
+  }
+
+  const csvBlob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const fileDate = date || new Date().toISOString().slice(0, 10);
+  const filename = `${filenamePrefix}_${fileDate}.csv`;
+
+  triggerFileDownload(csvBlob, filename);
 };
 
 export default {
   getReportsData,
   exportReport,
+  exportCapacityCsv,
 };
