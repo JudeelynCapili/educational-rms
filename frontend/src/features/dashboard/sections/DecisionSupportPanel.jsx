@@ -5,6 +5,7 @@ import {
   getConflictSummary,
   getCurrentUtilization,
   getPeakHours,
+  getDecisionSupport,
 } from '../../../services/simulationApi';
 import styles from './styles/DecisionSupportPanel.module.css';
 
@@ -27,6 +28,13 @@ const getLocalDateString = () => {
   const now = new Date();
   const localDate = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
   return localDate.toISOString().slice(0, 10);
+};
+
+const recommendationIcons = {
+  'room-allocation': FiMapPin,
+  'schedule-improvements': FiClock,
+  bottlenecks: FiLayers,
+  equipment: FiPackage,
 };
 
 const buildRecommendations = (currentUtilization, peakHours, conflictSummary) => {
@@ -54,7 +62,6 @@ const buildRecommendations = (currentUtilization, peakHours, conflictSummary) =>
   return [
     {
       id: 'room-allocation',
-      icon: FiMapPin,
       title: 'Recommend optimal room allocation',
       tone: bestRoom ? 'good' : 'neutral',
       headline: bestRoom
@@ -68,7 +75,6 @@ const buildRecommendations = (currentUtilization, peakHours, conflictSummary) =>
     },
     {
       id: 'schedule-improvements',
-      icon: FiClock,
       title: 'Suggest scheduling improvements',
       tone: peakSlot ? 'watch' : 'neutral',
       headline: peakSlot
@@ -82,7 +88,6 @@ const buildRecommendations = (currentUtilization, peakHours, conflictSummary) =>
     },
     {
       id: 'bottlenecks',
-      icon: FiLayers,
       title: 'Identify resource bottlenecks',
       tone: conflictRate >= 10 ? 'alert' : 'watch',
       headline: conflictRate >= 10
@@ -94,7 +99,6 @@ const buildRecommendations = (currentUtilization, peakHours, conflictSummary) =>
     },
     {
       id: 'equipment',
-      icon: FiPackage,
       title: 'Recommend additional equipment',
       tone: overloadedEquipment ? 'alert' : 'good',
       headline: overloadedEquipment
@@ -113,11 +117,7 @@ const DecisionSupportPanel = ({ userRole, showViewDetails = false }) => {
   const role = normalizeRole(userRole);
   const isSupportedRole = role === 'ADMIN' || role === 'FACULTY';
   const navigate = useNavigate();
-  const [data, setData] = useState({
-    currentUtilization: null,
-    peakHours: null,
-    conflictSummary: null,
-  });
+  const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -127,15 +127,33 @@ const DecisionSupportPanel = ({ userRole, showViewDetails = false }) => {
 
     try {
       const today = getLocalDateString();
-      const [currentUtilization, peakHours, conflictSummary] = await Promise.all([
-        getCurrentUtilization(today),
-        getPeakHours(14),
-        getConflictSummary(120),
-      ]);
-
-      setData({ currentUtilization, peakHours, conflictSummary });
+      const payload = await getDecisionSupport({
+        date: today,
+        peakDays: 14,
+        conflictDays: 120,
+      });
+      if (Array.isArray(payload?.recommendations) && payload.recommendations.length > 0) {
+        setRecommendations(payload.recommendations);
+      } else {
+        const [currentUtilization, peakHours, conflictSummary] = await Promise.all([
+          getCurrentUtilization(today),
+          getPeakHours(14),
+          getConflictSummary(120),
+        ]);
+        setRecommendations(buildRecommendations(currentUtilization, peakHours, conflictSummary));
+      }
     } catch (err) {
-      setError('Failed to load decision support insights.');
+      try {
+        const today = getLocalDateString();
+        const [currentUtilization, peakHours, conflictSummary] = await Promise.all([
+          getCurrentUtilization(today),
+          getPeakHours(14),
+          getConflictSummary(120),
+        ]);
+        setRecommendations(buildRecommendations(currentUtilization, peakHours, conflictSummary));
+      } catch (fallbackErr) {
+        setError('Failed to load decision support insights.');
+      }
     } finally {
       setLoading(false);
     }
@@ -150,9 +168,12 @@ const DecisionSupportPanel = ({ userRole, showViewDetails = false }) => {
     loadData();
   }, [isSupportedRole]);
 
-  const recommendations = useMemo(
-    () => buildRecommendations(data.currentUtilization, data.peakHours, data.conflictSummary),
-    [data.currentUtilization, data.peakHours, data.conflictSummary]
+  const cards = useMemo(
+    () => recommendations.map((item) => ({
+      ...item,
+      icon: recommendationIcons[item.id] || FiLayers,
+    })),
+    [recommendations]
   );
 
   if (!isSupportedRole) {
@@ -190,7 +211,7 @@ const DecisionSupportPanel = ({ userRole, showViewDetails = false }) => {
       {error ? <div className={styles.errorBanner}>{error}</div> : null}
 
       <div className={styles.recommendationGrid}>
-        {recommendations.map((item) => {
+        {cards.map((item) => {
           const Icon = item.icon;
 
           return (

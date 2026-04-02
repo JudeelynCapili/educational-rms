@@ -83,3 +83,15 @@ export const getConflictSummary = async (days = 120) => {
   const response = await api.get('/capacity/conflict_summary/', { params: { days } });
   return response.data;
 };
+
+export const getDecisionSupport = async ({ date, peakDays = 14, conflictDays = 120 } = {}) => {
+  const params = {};
+  if (date) {
+    params.date = date;
+  }
+  params.peak_days = peakDays;
+  params.conflict_days = conflictDays;
+
+  const response = await api.get('/capacity/decision_support/', { params });
+  return response.data;
+};
