@@ -34,9 +34,7 @@ const Login = () => {
     const errors = {};
 
     if (!formData.email.trim()) {
-      errors.email = 'Email is required';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      errors.email = 'Please enter a valid email';
+      errors.email = 'Email or username is required';
     }
 
     if (!formData.password) {
@@ -109,7 +107,7 @@ const Login = () => {
 
           <form onSubmit={handleSubmit} className="auth-form">
             <div className="form-group">
-              <label htmlFor="email" className="form-label">Email Address</label>
+              <label htmlFor="email" className="form-label">Email or Username</label>
               <div className="input-with-icon">
                 <FaEnvelope className="input-icon" />
                 <input
@@ -118,7 +116,7 @@ const Login = () => {
                   name="email"
                   value={formData.email}
                   onChange={handleChange}
-                  placeholder="you@university.edu"
+                  placeholder="you@university.edu or your username"
                   className={`form-input ${validationErrors.email ? 'error' : ''}`}
                   disabled={isLoading}
                 />
