@@ -6,6 +6,7 @@ import RequestEquipmentAction from './QuickActions/RequestEquipmentAction';
 import RunSimulationAction from './QuickActions/RunSimulationAction';
 import EditProfileAction from './QuickActions/EditProfileAction';
 import AdminSchedulingAction from './QuickActions/AdminSchedulingAction';
+import DisplayUtilizationChartsAction from './QuickActions/DisplayUtilizationChartsAction';
 import useBookingModal from '../../../hooks/useBookingModal';
 import styles from './styles/QuickActions.module.css';
 
@@ -32,6 +33,9 @@ const QuickActions = ({ onEditProfile, userRole, onBookingCreated }) => {
           <RequestEquipmentAction onClick={() => navigate('/equipment/request')} />
           {isAdmin && (
             <RunSimulationAction onClick={() => navigate('/simulation/room-usage')} />
+          )}
+          {isAdmin && (
+            <DisplayUtilizationChartsAction onClick={() => navigate('/modeling/resource-utilization')} />
           )}
           <EditProfileAction onClick={onEditProfile} />
           {isAdminUser && (
