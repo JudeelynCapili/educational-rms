@@ -121,12 +121,41 @@ export const buildRoomVisualization = ({ snapshot, metrics, params }) => {
 };
 
 export const buildTimelineRows = (result) => {
+  const timeSlotBreakdown = result?.metrics?.time_slot_breakdown || [];
+  if (Array.isArray(timeSlotBreakdown) && timeSlotBreakdown.length) {
+    const baseUtil = Number((result?.metrics?.server_utilization || 0) * 100);
+    return timeSlotBreakdown.map((slot, idx) => {
+      const avgQueue = Number(slot?.avg_max_queue ?? slot?.max_queue_length ?? 0);
+      const avgWait = Number(slot?.avg_wait_time ?? slot?.wait_time ?? 0);
+      const pressureBoost = Math.min(40, avgQueue * 6 + avgWait * 24);
+      const utilization = Math.min(100, Math.max(5, baseUtil * 0.7 + pressureBoost));
+      const rawHour = Number(slot?.hour);
+      const hour = Number.isFinite(rawHour) ? rawHour : idx;
+      return {
+        period: `Hour ${hour + 1}`,
+        utilization: Number(utilization.toFixed(1)),
+      };
+    });
+  }
+
   const replications = result?.raw_data?.replications || [];
   if (replications.length) {
-    return replications.slice(0, 24).map((row, idx) => ({
-      period: `Rep ${idx + 1}`,
-      utilization: Number(((row.server_utilization || 0) * 100).toFixed(1)),
-    }));
+    const targetPoints = Math.min(24, replications.length);
+    const step = targetPoints > 1
+      ? (replications.length - 1) / (targetPoints - 1)
+      : 0;
+    const rows = [];
+
+    for (let i = 0; i < targetPoints; i += 1) {
+      const sourceIndex = Math.round(i * step);
+      const row = replications[Math.min(sourceIndex, replications.length - 1)] || {};
+      rows.push({
+        period: `Rep ${sourceIndex + 1}`,
+        utilization: Number(((row.server_utilization || 0) * 100).toFixed(1)),
+      });
+    }
+
+    return rows;
   }
 
   const util = Number((result?.metrics?.server_utilization || 0) * 100);

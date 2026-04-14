@@ -24,6 +24,14 @@ import {
   useSimulationDerivedData,
   useSimulationPlayback,
 } from './hooks';
+import {
+  RoomUsageVisualization,
+  EquipmentUsageVisualization,
+  PeakHourVisualization,
+  ShortageComparison,
+  WhatIfMatrix,
+  SimulationComparison,
+} from './categories';
 import { INITIAL_SIMULATION_PARAMS } from './constants/simulationDefaults';
 import {
   animationStateClass,
@@ -121,6 +129,8 @@ const SimulationTemplate = ({ title, description, simulationType }) => {
     equipmentPage,
   });
 
+  const normalizedSimulationType = String(simulationType || 'general').replace(/-/g, '_');
+
   const {
     playbackIndex,
     isPlaybackActive,
@@ -141,8 +151,58 @@ const SimulationTemplate = ({ title, description, simulationType }) => {
     simData,
     simulationParams,
     metrics,
+    simulationType: normalizedSimulationType,
     onSimulationDataChanged: () => setEquipmentPage(1),
   });
+
+  const categoryMetrics = simData?.result?.category_metrics || null;
+
+  const renderCategoryVisualization = () => {
+    if (!simData?.result || !categoryMetrics) {
+      return null;
+    }
+
+    const commonProps = {
+      result: simData.result,
+      categoryMetrics,
+    };
+
+    switch (normalizedSimulationType) {
+      case 'room_usage':
+        return <RoomUsageVisualization {...commonProps} />;
+      case 'equipment_usage':
+        return <EquipmentUsageVisualization {...commonProps} />;
+      case 'peak_hour':
+        return <PeakHourVisualization {...commonProps} />;
+      case 'shortage':
+        return <ShortageComparison {...commonProps} />;
+      case 'what_if':
+        return <WhatIfMatrix {...commonProps} />;
+      default:
+        return null;
+    }
+  };
+
+  const comparisonResults = [
+    ...(simData?.result
+      ? [
+        {
+          id: simData.result.id,
+          simulation_type: normalizedSimulationType,
+          metrics: simData.result.metrics || {},
+        },
+      ]
+      : []),
+    ...historyRuns
+      .slice(0, 4)
+      .map((run) => ({
+        id: run.id,
+        simulation_type:
+          String(run?.parameters?.simulation_type || simulationType || 'general').replace(/-/g, '_'),
+        metrics: run.metrics || {},
+      }))
+      .filter((run) => run.id !== simData?.result?.id),
+  ];
 
   return (
     <div className="modeling-container">
@@ -228,7 +288,11 @@ const SimulationTemplate = ({ title, description, simulationType }) => {
           />
 
           <SimulationPlaybackCard
+            simulationType={normalizedSimulationType}
+            categoryMetrics={categoryMetrics}
             currentFrame={currentFrame}
+            playbackIndex={playbackIndex}
+            timelineBars={timelineBars}
             throughputPerHour={throughputPerHour}
             pressuredRooms={pressuredRooms}
             isPlaybackActive={isPlaybackActive}
@@ -265,6 +329,15 @@ const SimulationTemplate = ({ title, description, simulationType }) => {
             pressuredRooms={pressuredRooms}
             replications={metrics.num_replications || simulationParams.iterations}
           />
+
+          {renderCategoryVisualization()}
+
+          {comparisonResults.length > 1 && (
+            <SimulationComparison
+              simulationResults={comparisonResults}
+              selectedMetric="avg_waiting_time"
+            />
+          )}
         </div>
       )}
     </div>

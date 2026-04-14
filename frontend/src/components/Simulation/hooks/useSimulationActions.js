@@ -3,7 +3,11 @@ import {
   getSimulationAuditLogs,
   getSimulationBackup,
   getSimulationHistory,
+  getSimulationRecommendations,
+  getSimulationShortageBreakdown,
   getSimulationSystemSnapshot,
+  getSimulationTimeSlotBreakdown,
+  runSimulationBatchCompare,
   runSimulationScenario,
 } from '../../../services/simulationApi';
 import {
@@ -118,46 +122,143 @@ const useSimulationActions = ({
     }
   };
 
+  const normalizeSimulationType = (value) => String(value || 'general').replace(/-/g, '_');
+
+  const buildScenarioPayload = (typeOverride) => {
+    const normalizedSimulationType = normalizeSimulationType(typeOverride || simulationType);
+    const adjustedArrivalRate = getAdjustedArrivalRate(simulationParams, simulationType);
+    const numServers = resolveNumServers({
+      snapshot,
+      simulationParams,
+      simulationType,
+    });
+
+    const payload = {
+      name: `${title} ${new Date().toISOString()}`,
+      description: `Auto-generated ${normalizedSimulationType} scenario from real system snapshot.`,
+      num_replications: Number(simulationParams.iterations || 400),
+      parameters: {
+        arrival_model: 'poisson',
+        arrival_rate: Number(adjustedArrivalRate.toFixed(4)),
+        service_distribution: simulationParams.serviceDistribution,
+        service_rate: Number(simulationParams.serviceRate),
+        service_time: Number(simulationParams.serviceTime),
+        num_servers: numServers,
+        simulation_hours: Number(simulationParams.simulationHours || 8),
+        prng: simulationParams.prng,
+        seed: simulationParams.seed === '' ? null : Number(simulationParams.seed),
+        room_id: simulationParams.selectedRoomId ? Number(simulationParams.selectedRoomId) : null,
+        equipment_id: simulationParams.selectedEquipmentId ? Number(simulationParams.selectedEquipmentId) : null,
+        simulation_type: normalizedSimulationType,
+      },
+    };
+
+    if (payload.parameters.service_distribution === 'fixed') {
+      payload.parameters.service_rate = null;
+    }
+
+    return payload;
+  };
+
+  const fetchTimeSlotData = async (scenarioId, resultId) => {
+    return getSimulationTimeSlotBreakdown(scenarioId, resultId);
+  };
+
+  const fetchShortageComparison = async (scenarioId, resultId) => {
+    return getSimulationShortageBreakdown(scenarioId, resultId);
+  };
+
+  const fetchRecommendations = async (scenarioId, resultId) => {
+    return getSimulationRecommendations(scenarioId, resultId);
+  };
+
+  const setAnimationMode = (category) => {
+    const animationMode = normalizeSimulationType(category || simulationType);
+    setSimData((prev) => {
+      if (!prev) {
+        return prev;
+      }
+      return {
+        ...prev,
+        animationMode,
+      };
+    });
+    return animationMode;
+  };
+
+  const enrichResultWithPhaseFiveData = async ({ scenarioId, result, simulationType: activeType }) => {
+    const normalizedType = normalizeSimulationType(activeType);
+    const categoryMetrics = {
+      ...(result?.category_metrics || {}),
+    };
+
+    try {
+      if (['room_usage', 'equipment_usage', 'peak_hour'].includes(normalizedType)) {
+        const timeSlotPayload = await fetchTimeSlotData(scenarioId, result?.id);
+        if (Array.isArray(timeSlotPayload?.time_slots)) {
+          categoryMetrics.time_slot_breakdown = timeSlotPayload.time_slots;
+        }
+      }
+    } catch (error) {
+      console.warn('Unable to fetch time-slot breakdown:', error);
+    }
+
+    try {
+      if (normalizedType === 'shortage') {
+        const shortagePayload = await fetchShortageComparison(scenarioId, result?.id);
+        if (shortagePayload?.scenario_comparison) {
+          categoryMetrics.scenario_comparison = shortagePayload.scenario_comparison;
+        }
+        if (shortagePayload?.shortage_impact) {
+          categoryMetrics.shortage_impact = shortagePayload.shortage_impact;
+        }
+        if (Array.isArray(shortagePayload?.recommendations) && shortagePayload.recommendations.length) {
+          categoryMetrics.recommendations = shortagePayload.recommendations;
+        }
+      }
+    } catch (error) {
+      console.warn('Unable to fetch shortage breakdown:', error);
+    }
+
+    try {
+      const recPayload = await fetchRecommendations(scenarioId, result?.id);
+      if (Array.isArray(recPayload?.recommendations) && recPayload.recommendations.length) {
+        categoryMetrics.recommendations = recPayload.recommendations;
+      }
+      categoryMetrics.decision_support = {
+        ...(categoryMetrics.decision_support || {}),
+        health_score: recPayload?.health_score ?? categoryMetrics?.decision_support?.health_score,
+        priority: recPayload?.priority ?? categoryMetrics?.decision_support?.priority,
+        recommendations: recPayload?.recommendations || categoryMetrics?.recommendations || [],
+      };
+    } catch (error) {
+      console.warn('Unable to fetch recommendations:', error);
+    }
+
+    return {
+      ...result,
+      category_metrics: categoryMetrics,
+    };
+  };
+
   const runSimulation = async () => {
     setError('');
     setActionMessage('');
     setIsRunning(true);
 
     try {
-      const adjustedArrivalRate = getAdjustedArrivalRate(simulationParams, simulationType);
-      const numServers = resolveNumServers({
-        snapshot,
-        simulationParams,
-        simulationType,
-      });
-      const payload = {
-        name: `${title} ${new Date().toISOString()}`,
-        description: `Auto-generated ${simulationType} scenario from real system snapshot.`,
-        num_replications: Number(simulationParams.iterations || 400),
-        parameters: {
-          arrival_model: 'poisson',
-          arrival_rate: Number(adjustedArrivalRate.toFixed(4)),
-          service_distribution: simulationParams.serviceDistribution,
-          service_rate: Number(simulationParams.serviceRate),
-          service_time: Number(simulationParams.serviceTime),
-          num_servers: numServers,
-          simulation_hours: Number(simulationParams.simulationHours || 8),
-          prng: simulationParams.prng,
-          seed: simulationParams.seed === '' ? null : Number(simulationParams.seed),
-          room_id: simulationParams.selectedRoomId ? Number(simulationParams.selectedRoomId) : null,
-          equipment_id: simulationParams.selectedEquipmentId ? Number(simulationParams.selectedEquipmentId) : null,
-          simulation_type: simulationType,
-        },
-      };
-
-      if (payload.parameters.service_distribution === 'fixed') {
-        payload.parameters.service_rate = null;
-      }
+      const normalizedSimulationType = normalizeSimulationType(simulationType);
+      const payload = buildScenarioPayload(normalizedSimulationType);
 
       const createdScenario = await createSimulationScenario(payload);
-      const result = await runSimulationScenario(createdScenario.id, {
+      const rawResult = await runSimulationScenario(createdScenario.id, {
         mode: 'simulate',
         num_replications: Number(simulationParams.iterations || 400),
+      });
+      const result = await enrichResultWithPhaseFiveData({
+        scenarioId: createdScenario.id,
+        result: rawResult,
+        simulationType: normalizedSimulationType,
       });
 
       const timeline = buildTimelineRows(result);
@@ -181,6 +282,43 @@ const useSimulationActions = ({
       const msg = toErrorMessage(error, 'Simulation run failed. Please review your parameters.');
       setError(msg);
       console.error('Simulation run error:', error);
+    } finally {
+      setIsRunning(false);
+    }
+  };
+
+  const runBatchComparison = async (parameterRanges = {}) => {
+    setError('');
+    setActionMessage('');
+    setIsRunning(true);
+
+    try {
+      const multipliers = Array.isArray(parameterRanges?.multipliers) && parameterRanges.multipliers.length
+        ? parameterRanges.multipliers.map((value) => Number(value)).filter((value) => Number.isFinite(value))
+        : [0.75, 1.0, 1.25];
+      const numReplications = Number(parameterRanges?.numReplications || simulationParams.iterations || 300);
+
+      let scenarioId = Number(parameterRanges?.scenarioId || simData?.scenario?.id || 0);
+      if (!scenarioId) {
+        const whatIfPayload = buildScenarioPayload('what_if');
+        const createdScenario = await createSimulationScenario(whatIfPayload);
+        scenarioId = createdScenario.id;
+      }
+
+      const batchResult = await runSimulationBatchCompare({
+        scenarioId,
+        multipliers,
+        numReplications,
+      });
+
+      setActionMessage(`Batch comparison complete: ${multipliers.length} scenarios analyzed.`);
+      await loadAuditLogs();
+      await loadSimulationHistory();
+      return batchResult;
+    } catch (error) {
+      const msg = toErrorMessage(error, 'Batch comparison failed.');
+      setError(msg);
+      throw error;
     } finally {
       setIsRunning(false);
     }
@@ -246,6 +384,7 @@ const useSimulationActions = ({
       scenario: run.scenario,
       run_date: run.run_date,
       metrics: run.metrics || {},
+      category_metrics: run.category_metrics || {},
       raw_data: run.raw_data || {},
     };
 
@@ -276,6 +415,11 @@ const useSimulationActions = ({
     loadSimulationHistory,
     loadSystemSnapshot,
     runSimulation,
+    runBatchComparison,
+    fetchTimeSlotData,
+    fetchShortageComparison,
+    fetchRecommendations,
+    setAnimationMode,
     exportResults,
     downloadBackup,
     exportHistoryRun,
