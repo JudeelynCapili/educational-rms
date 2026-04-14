@@ -6,14 +6,9 @@
   padding: 0;
 }
 
-html, body, #root {
-  height: 100%;
-  overflow: hidden;
-}
-
 .login-layout {
-  height: 100vh;
-  width: 100vw;
+  min-height: 100vh;
+  width: 100%;
   display: grid;
   grid-template-columns: 47% 52%;
   font-family: 'Poppins', sans-serif;
@@ -287,10 +282,6 @@ html, body, #root {
 }
 
 @media (max-width: 768px) {
-  html, body, #root {
-    overflow: auto;
-  }
-
   .login-layout {
     height: auto;
     min-height: 100vh;
