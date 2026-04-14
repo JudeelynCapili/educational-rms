@@ -6,7 +6,14 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from ..models import SimulationScenario, SimulationResult, SimulationAuditLog
-from ..simulation_engine import estimate_mm_c, simulate_replication
+from ..simulation_engine import (
+    estimate_mm_c, 
+    simulate_replication,
+    run_shortage_analysis,
+    run_comparative_scenarios,
+)
+from ..simulation_categories import get_simulator
+from ..decision_support import build_decision_support_payload
 from .payload_mappers import (
     serialize_backup_result,
     serialize_backup_scenario,
@@ -45,6 +52,16 @@ class SimulationViewSet(viewsets.ModelViewSet):
             return None, Response({'error': f'{name} must be an integer'}, status=status.HTTP_400_BAD_REQUEST)
 
         return max(min_value, min(value, max_value)), None
+    
+    def _avg_hour_metric(self, metrics_list, hour_idx, metric_key):
+        """Average a metric across all replications for a specific hour."""
+        values = []
+        for m in metrics_list:
+            if 'time_slot_breakdown' in m and hour_idx < len(m['time_slot_breakdown']):
+                hour_data = m['time_slot_breakdown'][hour_idx]
+                if metric_key in hour_data:
+                    values.append(hour_data[metric_key])
+        return sum(values) / len(values) if values else 0.0
 
     @action(detail=False, methods=['get'])
     def system_snapshot(self, request):
@@ -94,6 +111,19 @@ class SimulationViewSet(viewsets.ModelViewSet):
         )
         if stale_run_ids:
             SimulationResult.objects.filter(id__in=stale_run_ids).delete()
+
+    def _resolve_result_for_detail_actions(self, request, scenario):
+        """Resolve target result by query param result_id or latest scenario result."""
+        result_id = request.query_params.get('result_id')
+        queryset = scenario.simulationresult_set.all().order_by('-run_date', '-id')
+
+        if result_id:
+            try:
+                return queryset.get(id=int(result_id))
+            except (TypeError, ValueError, SimulationResult.DoesNotExist):
+                return None
+
+        return queryset.first()
     
     @action(detail=True, methods=['post'])
     def run(self, request, pk=None):
@@ -161,47 +191,121 @@ class SimulationViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_201_CREATED
             )
 
-        metrics_list = []
-        for rep in range(num_replications):
-            rep_params = dict(params)
-            # Different seed per replication if provided
-            if rep_params.get('seed') is not None:
-                try:
-                    rep_params['seed'] = int(rep_params['seed']) + rep
-                except (ValueError, TypeError):
-                    rep_params['seed'] = None
+        # Check if we should use category-specific simulator
+        simulation_type = str(params.get('simulation_type', 'general')).replace('-', '_')
+        use_category_simulator = simulation_type in ['room_usage', 'equipment_usage', 'peak_hour', 'shortage', 'what_if']
+        
+        if use_category_simulator:
             try:
-                metrics_list.append(simulate_replication(rep_params))
-            except ValueError as exc:
+                # Use category-specific simulator
+                simulator_kwargs = {}
+                if simulation_type == 'what_if':
+                    multipliers = request.data.get('multipliers', [0.75, 1.0, 1.25])
+                    try:
+                        multipliers = [float(m) for m in multipliers if m]
+                    except (ValueError, TypeError):
+                        multipliers = [0.75, 1.0, 1.25]
+                    simulator_kwargs['multipliers'] = multipliers
+                
+                simulator = get_simulator(
+                    simulation_type, 
+                    params, 
+                    num_replications=num_replications,
+                    **simulator_kwargs
+                )
+                simulator_results = simulator.run()
+                
+                aggregated = simulator_results['standard_metrics']
+                category_metrics = simulator_results['category_metrics'] or {}
+                aggregated['num_replications'] = num_replications
+
+                decision_support = build_decision_support_payload(
+                    simulation_type,
+                    aggregated,
+                    category_metrics,
+                )
+                category_metrics['decision_support'] = decision_support
+                if not category_metrics.get('recommendations'):
+                    category_metrics['recommendations'] = decision_support.get('recommendations', [])
+                
+                result = SimulationResult.objects.create(
+                    scenario=scenario,
+                    metrics=aggregated,
+                    category_metrics=category_metrics if category_metrics else None,
+                    raw_data={'simulation_type': simulation_type, 'category_simulator': True}
+                )
+            except Exception as exc:
                 self._log_audit(
                     request,
                     action='run_failed',
                     level='error',
                     scenario=scenario,
-                    message='Simulation run failed while computing replications',
-                    metadata={'error': str(exc), 'mode': run_mode},
+                    message=f'Category-specific simulation failed: {simulation_type}',
+                    metadata={'error': str(exc), 'simulation_type': simulation_type},
                 )
-                return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'error': f'Simulation failed: {str(exc)}'}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            # Use standard simulation path
+            metrics_list = []
+            for rep in range(num_replications):
+                rep_params = dict(params)
+                # Different seed per replication if provided
+                if rep_params.get('seed') is not None:
+                    try:
+                        rep_params['seed'] = int(rep_params['seed']) + rep
+                    except (ValueError, TypeError):
+                        rep_params['seed'] = None
+                
+                # Enable time-slot tracking
+                rep_params['track_time_slots'] = True
+                
+                try:
+                    metrics_list.append(simulate_replication(rep_params))
+                except ValueError as exc:
+                    self._log_audit(
+                        request,
+                        action='run_failed',
+                        level='error',
+                        scenario=scenario,
+                        message='Simulation run failed while computing replications',
+                        metadata={'error': str(exc), 'mode': run_mode},
+                    )
+                    return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Aggregate metrics
-        def avg(key):
-            return sum(m[key] for m in metrics_list) / len(metrics_list)
+            # Aggregate metrics
+            def avg(key):
+                values = [m[key] for m in metrics_list if key in m]
+                return sum(values) / len(values) if values else 0.0
 
-        aggregated = {
-            'avg_queue_length': avg('avg_queue_length'),
-            'avg_waiting_time': avg('avg_waiting_time'),
-            'avg_system_time': avg('avg_system_time'),
-            'server_utilization': avg('server_utilization'),
-            'max_queue_length': max(m['max_queue_length'] for m in metrics_list),
-            'served_count_avg': avg('served_count'),
-            'num_replications': num_replications
-        }
-
-        result = SimulationResult.objects.create(
-            scenario=scenario,
-            metrics=aggregated,
-            raw_data={'replications': metrics_list[:100]}
-        )
+            aggregated = {
+                'avg_queue_length': avg('avg_queue_length'),
+                'avg_waiting_time': avg('avg_waiting_time'),
+                'avg_system_time': avg('avg_system_time'),
+                'server_utilization': avg('server_utilization'),
+                'max_queue_length': max((m.get('max_queue_length', 0) for m in metrics_list), default=0),
+                'served_count_avg': avg('served_count'),
+                'num_replications': num_replications
+            }
+            
+            # Add shortage metrics if any replication tracked them
+            if any('rejected_count' in m for m in metrics_list):
+                aggregated['rejected_count'] = sum(m.get('rejected_count', 0) for m in metrics_list)
+                aggregated['unmet_demand_percentage'] = avg('unmet_demand_percentage')
+            
+            category_metrics = {}
+            decision_support = build_decision_support_payload(
+                simulation_type,
+                aggregated,
+                category_metrics,
+            )
+            category_metrics['decision_support'] = decision_support
+            category_metrics['recommendations'] = decision_support.get('recommendations', [])
+            result = SimulationResult.objects.create(
+                scenario=scenario,
+                metrics=aggregated,
+                category_metrics=category_metrics if category_metrics else None,
+                raw_data={'replications': metrics_list[:100]}
+            )
         self._log_audit(
             request,
             action='run_succeeded',
@@ -224,6 +328,160 @@ class SimulationViewSet(viewsets.ModelViewSet):
         results = scenario.simulationresult_set.all()
         serializer = SimulationResultSerializer(results, many=True)
         return Response(serializer.data)
+
+    @action(detail=True, methods=['get'], url_path='time-slot-breakdown')
+    def time_slot_breakdown(self, request, pk=None):
+        """Return time-slot series for the selected or latest simulation result."""
+        scenario = self.get_object()
+        result = self._resolve_result_for_detail_actions(request, scenario)
+        if not result:
+            return Response({'error': 'No simulation result found for this scenario'}, status=status.HTTP_404_NOT_FOUND)
+
+        category_metrics = result.category_metrics or {}
+        metrics = result.metrics or {}
+
+        if category_metrics.get('room_utilization_by_hour'):
+            payload = category_metrics['room_utilization_by_hour']
+            source = 'room_utilization_by_hour'
+        elif category_metrics.get('peak_hours_analysis'):
+            payload = category_metrics['peak_hours_analysis']
+            source = 'peak_hours_analysis'
+        elif metrics.get('time_slot_breakdown'):
+            payload = metrics['time_slot_breakdown']
+            source = 'metrics.time_slot_breakdown'
+        else:
+            payload = []
+            source = 'none'
+
+        return Response({
+            'scenario_id': scenario.id,
+            'result_id': result.id,
+            'source': source,
+            'time_slots': payload,
+        })
+
+    @action(detail=True, methods=['get'], url_path='recommendations')
+    def recommendations(self, request, pk=None):
+        """Return decision-support recommendations for selected/latest simulation result."""
+        scenario = self.get_object()
+        result = self._resolve_result_for_detail_actions(request, scenario)
+        if not result:
+            return Response({'error': 'No simulation result found for this scenario'}, status=status.HTTP_404_NOT_FOUND)
+
+        category_metrics = result.category_metrics or {}
+        decision_support = category_metrics.get('decision_support') or {}
+        recommendations = category_metrics.get('recommendations') or decision_support.get('recommendations') or []
+
+        return Response({
+            'scenario_id': scenario.id,
+            'result_id': result.id,
+            'health_score': decision_support.get('health_score'),
+            'priority': decision_support.get('priority'),
+            'recommendations': recommendations,
+        })
+
+    @action(detail=True, methods=['get'], url_path='shortage-breakdown')
+    def shortage_breakdown(self, request, pk=None):
+        """Return shortage comparison payload for selected/latest simulation result."""
+        scenario = self.get_object()
+        result = self._resolve_result_for_detail_actions(request, scenario)
+        if not result:
+            return Response({'error': 'No simulation result found for this scenario'}, status=status.HTTP_404_NOT_FOUND)
+
+        category_metrics = result.category_metrics or {}
+        scenario_comparison = category_metrics.get('scenario_comparison') or {}
+        shortage_impact = category_metrics.get('shortage_impact') or {}
+        recommendations = category_metrics.get('recommendations') or []
+
+        return Response({
+            'scenario_id': scenario.id,
+            'result_id': result.id,
+            'scenario_comparison': scenario_comparison,
+            'shortage_impact': shortage_impact,
+            'recommendations': recommendations,
+        })
+    
+    @action(detail=False, methods=['post'])
+    def batch_compare(self, request):
+        """Run multiple what-if scenarios in a batch and return all results for comparison."""
+        scenario_id = request.data.get('scenario_id')
+        multipliers = request.data.get('multipliers', [0.5, 0.75, 1.0, 1.25, 1.5])
+        num_replications = request.data.get('num_replications', 100)
+        
+        if not scenario_id:
+            return Response({'error': 'scenario_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            scenario = SimulationScenario.objects.get(id=scenario_id)
+        except SimulationScenario.DoesNotExist:
+            return Response({'error': 'Scenario not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        try:
+            multipliers = [float(m) for m in multipliers if m]
+            num_replications = int(num_replications)
+        except (ValueError, TypeError):
+            return Response({'error': 'Invalid multipliers or num_replications'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if num_replications < 50:
+            num_replications = 50
+        
+        self._log_audit(
+            request,
+            action='run_started',
+            scenario=scenario,
+            message='Batch comparison started',
+            metadata={'multipliers': multipliers, 'num_replications': num_replications},
+        )
+        
+        params = scenario.parameters or {}
+        batch_results = run_comparative_scenarios(params, multipliers, num_replications=num_replications)
+        
+        # Store batch results
+        batch_data = {
+            'batch_multipliers': multipliers,
+            'batch_scenario_id': scenario_id,
+            'results_per_multiplier': {},
+        }
+        
+        result_ids = []
+        for multiplier_key, scenario_result in batch_results.items():
+            multiplier_value = scenario_result.get('multiplier')
+            
+            # Create individual result for each scenario
+            result = SimulationResult.objects.create(
+                scenario=scenario,
+                metrics=scenario_result.get('metrics', {}),
+                raw_data={'batch_mode': True, 'multiplier': multiplier_value},
+            )
+            result_ids.append(result.id)
+            batch_data['results_per_multiplier'][multiplier_key] = result.id
+        
+        # Create summary result with batch metadata
+        summary_result = SimulationResult.objects.create(
+            scenario=scenario,
+            metrics={},
+            category_metrics={
+                'batch_comparison': batch_data,
+                'scenario_results': batch_results,
+            },
+            raw_data={'batch_mode': True, 'is_summary': True},
+        )
+        
+        self._log_audit(
+            request,
+            action='run_succeeded',
+            scenario=scenario,
+            result=summary_result,
+            message='Batch comparison completed successfully',
+            metadata={'multipliers': multipliers, 'num_results': len(result_ids)},
+        )
+        
+        return Response({
+            'summary_result_id': summary_result.id,
+            'individual_result_ids': result_ids,
+            'multipliers': multipliers,
+            'batch_data': batch_data,
+        }, status=status.HTTP_201_CREATED)
 
     @action(detail=False, methods=['get'])
     def history(self, request):

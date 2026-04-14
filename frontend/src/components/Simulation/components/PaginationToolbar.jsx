@@ -9,25 +9,27 @@ const PaginationToolbar = ({
 }) => {
   return (
     <div className={`timeline-toolbar ${className}`.trim()}>
-      <span>
+      <span className="timeline-toolbar-info">
         Page {currentPage} of {totalPages}
       </span>
-      <button
-        className="btn-export"
-        type="button"
-        onClick={onPrev}
-        disabled={currentPage <= 1}
-      >
-        Previous
-      </button>
-      <button
-        className="btn-export"
-        type="button"
-        onClick={onNext}
-        disabled={currentPage >= totalPages}
-      >
-        Next
-      </button>
+      <div className="timeline-toolbar-actions">
+        <button
+          className="btn-export"
+          type="button"
+          onClick={onPrev}
+          disabled={currentPage <= 1}
+        >
+          Previous
+        </button>
+        <button
+          className="btn-export"
+          type="button"
+          onClick={onNext}
+          disabled={currentPage >= totalPages}
+        >
+          Next
+        </button>
+      </div>
     </div>
   );
 };

@@ -15,8 +15,57 @@ export const runSimulationScenario = async (id, data = {}) => {
   return response.data;
 };
 
+export const runSimulationBatchCompare = async ({ scenarioId, multipliers, numReplications }) => {
+  const payload = {
+    scenario_id: scenarioId,
+  };
+
+  if (Array.isArray(multipliers) && multipliers.length) {
+    payload.multipliers = multipliers;
+  }
+
+  if (Number.isFinite(Number(numReplications))) {
+    payload.num_replications = Number(numReplications);
+  }
+
+  try {
+    const response = await api.post('/simulation/batch_compare/', payload);
+    return response.data;
+  } catch (error) {
+    const fallbackResponse = await api.post('/simulation/batch-compare/', payload);
+    return fallbackResponse.data;
+  }
+};
+
 export const getSimulationResults = async (id) => {
   const response = await api.get(`/simulation/${id}/results/`);
+  return response.data;
+};
+
+export const getSimulationTimeSlotBreakdown = async (scenarioId, resultId) => {
+  const params = {};
+  if (resultId) {
+    params.result_id = resultId;
+  }
+  const response = await api.get(`/simulation/${scenarioId}/time-slot-breakdown/`, { params });
+  return response.data;
+};
+
+export const getSimulationShortageBreakdown = async (scenarioId, resultId) => {
+  const params = {};
+  if (resultId) {
+    params.result_id = resultId;
+  }
+  const response = await api.get(`/simulation/${scenarioId}/shortage-breakdown/`, { params });
+  return response.data;
+};
+
+export const getSimulationRecommendations = async (scenarioId, resultId) => {
+  const params = {};
+  if (resultId) {
+    params.result_id = resultId;
+  }
+  const response = await api.get(`/simulation/${scenarioId}/recommendations/`, { params });
   return response.data;
 };
 

@@ -14,28 +14,30 @@ const AuditLogsTable = ({
 
   return (
     <>
-      <table className="timeline-table">
-        <thead>
-          <tr>
-            <th>When</th>
-            <th>Action</th>
-            <th>Level</th>
-            <th>Scenario</th>
-            <th>Message</th>
-          </tr>
-        </thead>
-        <tbody>
-          {logs.map((log) => (
-            <tr key={log.id}>
-              <td>{new Date(log.created_at).toLocaleString()}</td>
-              <td>{log.action}</td>
-              <td className="value">{log.level}</td>
-              <td>{log.scenario_name || '-'}</td>
-              <td>{log.message}</td>
+      <div className="timeline-table-wrap">
+        <table className="timeline-table">
+          <thead>
+            <tr>
+              <th>When</th>
+              <th>Action</th>
+              <th>Level</th>
+              <th>Scenario</th>
+              <th>Message</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {logs.map((log) => (
+              <tr key={log.id}>
+                <td>{new Date(log.created_at).toLocaleString()}</td>
+                <td>{log.action}</td>
+                <td className="value">{log.level}</td>
+                <td>{log.scenario_name || '-'}</td>
+                <td>{log.message}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       <PaginationToolbar
         className="timeline-toolbar-padded"

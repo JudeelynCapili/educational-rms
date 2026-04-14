@@ -12,17 +12,29 @@ HISTORY_TYPE_KEYWORDS = {
 }
 
 
+def _simulation_type_aliases(simulation_type):
+    if not simulation_type:
+        return []
+
+    normalized_dash = str(simulation_type).replace('_', '-')
+    normalized_underscore = str(simulation_type).replace('-', '_')
+
+    aliases = [str(simulation_type), normalized_dash, normalized_underscore]
+    return list(dict.fromkeys(aliases))
+
+
 def build_result_category_filter(simulation_type, include_legacy=False, keywords_map=None):
     if not simulation_type:
         return Q()
 
     keywords_source = keywords_map or HISTORY_TYPE_KEYWORDS
+    aliases = _simulation_type_aliases(simulation_type)
 
-    typed_filter = Q(scenario__parameters__simulation_type=simulation_type)
+    typed_filter = Q(scenario__parameters__simulation_type__in=aliases)
     if not include_legacy:
         return typed_filter
 
-    keywords = keywords_source.get(simulation_type, [])
+    keywords = keywords_source.get(str(simulation_type).replace('_', '-'), [])
     if not keywords:
         return typed_filter
 
@@ -43,12 +55,13 @@ def build_scenario_filter(simulation_type, include_legacy=False, keywords_map=No
         return Q()
 
     keywords_source = keywords_map or HISTORY_TYPE_KEYWORDS
+    aliases = _simulation_type_aliases(simulation_type)
 
-    typed_filter = Q(parameters__simulation_type=simulation_type)
+    typed_filter = Q(parameters__simulation_type__in=aliases)
     if not include_legacy:
         return typed_filter
 
-    keywords = keywords_source.get(simulation_type, [])
+    keywords = keywords_source.get(str(simulation_type).replace('_', '-'), [])
     if not keywords:
         return typed_filter
 

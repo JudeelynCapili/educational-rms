@@ -36,6 +36,7 @@ def serialize_history_run(run):
         'scenario_created_at': scenario.created_at,
         'run_date': run.run_date,
         'metrics': run.metrics,
+        'category_metrics': run.category_metrics,
         'raw_data': run.raw_data,
         'parameters': scenario.parameters,
         'num_replications': scenario.num_replications,
