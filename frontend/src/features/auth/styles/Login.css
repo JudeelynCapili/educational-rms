@@ -10,7 +10,7 @@
   min-height: 100vh;
   width: 100%;
   display: grid;
-  grid-template-columns: 47% 52%;
+  grid-template-columns: 47% 53%;
   font-family: 'Poppins', sans-serif;
   overflow: hidden;
   background-image: var(--login-bg-image);
